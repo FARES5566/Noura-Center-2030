@@ -66,17 +66,28 @@ public class MainActivity extends Activity {
         button.setOnClickListener(v -> action.run());
     }
 
-    private EditText addInput(String hint) {
-        EditText input = new EditText(this);
-        input.setHint(hint);
-        input.setTextSize(16);
-        input.setPadding(12, 8, 12, 8);
-        layout.addView(input,
-            new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        return input;
+ 
+private EditText addInput(String hint) {
+    EditText input = new EditText(this);
+    input.setHint(hint);
+    input.setTextSize(16);
+    input.setPadding(12, 8, 12, 8);
+
+    if (hint.contains("رقم")
+            || hint.contains("الجوال")
+            || hint.contains("الضريبي")
+            || hint.contains("البريدي")) {
+        input.setInputType(
+            android.text.InputType.TYPE_CLASS_NUMBER);
     }
+
+    layout.addView(input,
+        new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
+    return input;
+}
 
     private JSONArray readArray(String key) {
         try {
