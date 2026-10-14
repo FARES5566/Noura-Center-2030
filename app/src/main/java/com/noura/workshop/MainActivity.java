@@ -1,3 +1,4 @@
+
 package com.noura.workshop;
 
 import android.app.Activity;
@@ -7,8 +8,10 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
 import android.content.SharedPreferences;
+import android.text.InputType;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
 
@@ -16,9 +19,8 @@ public class MainActivity extends Activity {
     private LinearLayout layout;
     private SharedPreferences prefs;
 
-    private final String[] statuses = {
-        "جديد", "قيد الإصلاح", "جاهز للتسليم", "تم التسليم"
-    };
+    private final String[] units = {"صيانة", "قطع غيار"};
+    private static final double TAX_RATE = 0.15;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,28 +68,27 @@ public class MainActivity extends Activity {
         button.setOnClickListener(v -> action.run());
     }
 
- 
-private EditText addInput(String hint) {
-    EditText input = new EditText(this);
-    input.setHint(hint);
-    input.setTextSize(16);
-    input.setPadding(12, 8, 12, 8);
-
-    if (hint.contains("رقم")
-            || hint.contains("الجوال")
-            || hint.contains("الضريبي")
-            || hint.contains("البريدي")) {
-        input.setInputType(
-            android.text.InputType.TYPE_CLASS_NUMBER);
+    private EditText addInput(String hint) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setTextSize(16);
+        input.setPadding(12, 8, 12, 8);
+        input.setSingleLine(true);
+        layout.addView(input,
+            new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        return input;
     }
 
-    layout.addView(input,
-        new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
-
-    return input;
-}
+    private EditText addNumberInput(String hint) {
+        EditText input = addInput(hint);
+        input.setInputType(
+            InputType.TYPE_CLASS_NUMBER
+            | InputType.TYPE_NUMBER_FLAG_DECIMAL
+            | InputType.TYPE_NUMBER_FLAG_SIGNED);
+        return input;
+    }
 
     private JSONArray readArray(String key) {
         try {
@@ -106,7 +107,7 @@ private EditText addInput(String hint) {
         addTitle("مركز نوره للصيانة");
 
         addButton("إدارة العملاء", this::showCustomers);
-        addButton("طلبات الصيانة", this::showRepairs);
+        addButton("كرت الأصناف", this::showItems);
         addButton("الفواتير والمدفوعات",
             () -> showSection("الفواتير والمدفوعات",
                 "سيتم تطوير الفواتير في الخطوة التالية."));
@@ -118,262 +119,296 @@ private EditText addInput(String hint) {
     private void showSection(String title, String message) {
         setupLayout();
         addTitle(title);
-        TextView info = new TextView(this);
-        info.setText(message);
-        info.setTextSize(18);
-        layout.addView(info);
+        addText(message);
         addButton("العودة للرئيسية", this::showHome);
     }
 
-    
-private void showCustomers() {
-    setupLayout();
-    addTitle("إدارة العملاء");
-
-    EditText name = addInput("اسم العميل أو المنشأة");
-    EditText phone = addInput("رقم الجوال");
-    phone.setInputType(3);
-
-    EditText nationalAddress =
-        addInput("العنوان الوطني الكامل");
-
-    EditText buildingNumber =
-        addInput("رقم المبنى (اختياري)");
-
-    EditText district =
-        addInput("الحي (اختياري)");
-
-    EditText city =
-        addInput("المدينة (اختياري)");
-
-    EditText postalCode =
-        addInput("الرمز البريدي (اختياري)");
-
-    EditText additionalNumber =
-        addInput("الرقم الإضافي للعنوان (اختياري)");
-
-    EditText taxNumber =
-        addInput("الرقم الضريبي (اختياري)");
-
-    EditText identifierType =
-        addInput("نوع المعرّف الآخر (سجل تجاري، رقم منشأة...)");
-
-    EditText identifierValue =
-        addInput("رقم المعرّف الآخر (اختياري)");
-
-    addButton("حفظ العميل", () -> {
-        String n = name.getText().toString().trim();
-        String p = phone.getText().toString().trim();
-
-        if (n.isEmpty() || p.isEmpty()) {
-            toast("أدخل اسم العميل ورقم الجوال");
-            return;
-        }
-
-        JSONArray customers = readArray("customers");
-
-        try {
-            JSONObject c = new JSONObject();
-            c.put("name", n);
-            c.put("phone", p);
-            c.put("nationalAddress",
-                nationalAddress.getText().toString().trim());
-            c.put("buildingNumber",
-                buildingNumber.getText().toString().trim());
-            c.put("district",
-                district.getText().toString().trim());
-            c.put("city",
-                city.getText().toString().trim());
-            c.put("postalCode",
-                postalCode.getText().toString().trim());
-            c.put("additionalNumber",
-                additionalNumber.getText().toString().trim());
-            c.put("taxNumber",
-                taxNumber.getText().toString().trim());
-            c.put("identifierType",
-                identifierType.getText().toString().trim());
-            c.put("identifierValue",
-                identifierValue.getText().toString().trim());
-
-            customers.put(c);
-            saveArray("customers", customers);
-
-            toast("تم حفظ بيانات العميل");
-            showCustomers();
-
-        } catch (Exception e) {
-            toast("تعذر حفظ بيانات العميل");
-        }
-    });
-
-    addButton("عرض العملاء المسجلين",
-        this::showCustomerList);
-
-    addButton("العودة للرئيسية", this::showHome);
-}
-
-
-   
-private void showCustomerList() {
-    setupLayout();
-    addTitle("العملاء المسجلون");
-
-    JSONArray customers = readArray("customers");
-
-    if (customers.length() == 0) {
-        addText("لا يوجد عملاء مسجلون.");
-    }
-
-    for (int i = 0; i < customers.length(); i++) {
-        try {
-            JSONObject c = customers.getJSONObject(i);
-
-            String info =
-                "الاسم: " + c.optString("name")
-                + "\nالجوال: " + c.optString("phone")
-                + "\nالعنوان الوطني: "
-                + c.optString("nationalAddress", "")
-                + "\nرقم المبنى: "
-                + c.optString("buildingNumber", "")
-                + "\nالحي: " + c.optString("district", "")
-                + "\nالمدينة: " + c.optString("city", "")
-                + "\nالرمز البريدي: "
-                + c.optString("postalCode", "")
-                + "\nالرقم الإضافي: "
-                + c.optString("additionalNumber", "")
-                + "\nالرقم الضريبي: "
-                + c.optString("taxNumber", "")
-                + "\nنوع المعرّف الآخر: "
-                + c.optString("identifierType", "")
-                + "\nرقم المعرّف الآخر: "
-                + c.optString("identifierValue", "");
-
-            addText(info);
-
-        } catch (Exception ignored) {}
-    }
-
-    addButton("إضافة عميل", this::showCustomers);
-    addButton("العودة للرئيسية", this::showHome);
-}
-
-    private void showRepairs() {
+    // إدارة العملاء
+    private void showCustomers() {
         setupLayout();
-        addTitle("طلبات الصيانة");
+        addTitle("إدارة العملاء");
 
-        EditText customer = addInput("اسم العميل");
-        EditText phone = addInput("رقم جوال العميل");
-        phone.setInputType(3);
-        EditText device = addInput("الجهاز أو المعدة");
-        EditText problem = addInput("وصف العطل");
+        EditText name = addInput("اسم العميل أو المنشأة");
+        EditText phone = addNumberInput("رقم الجوال");
+        EditText nationalAddress = addInput("العنوان الوطني الكامل");
+        EditText buildingNumber = addNumberInput("رقم المبنى (اختياري)");
+        EditText district = addInput("الحي (اختياري)");
+        EditText city = addInput("المدينة (اختياري)");
+        EditText postalCode = addNumberInput("الرمز البريدي (اختياري)");
+        EditText additionalNumber =
+            addNumberInput("الرقم الإضافي للعنوان (اختياري)");
+        EditText taxNumber = addNumberInput("الرقم الضريبي (اختياري)");
+        EditText identifierType =
+            addInput("نوع المعرّف الآخر (سجل تجاري، رقم منشأة...)");
+        EditText identifierValue =
+            addInput("رقم المعرّف الآخر (اختياري)");
 
-        Spinner statusSpinner = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-            this, android.R.layout.simple_spinner_item, statuses);
-        adapter.setDropDownViewResource(
-            android.R.layout.simple_spinner_dropdown_item);
-        statusSpinner.setAdapter(adapter);
-        layout.addView(statusSpinner);
-
-        addButton("حفظ طلب الصيانة", () -> {
-            String n = customer.getText().toString().trim();
+        addButton("حفظ العميل", () -> {
+            String n = name.getText().toString().trim();
             String p = phone.getText().toString().trim();
-            String d = device.getText().toString().trim();
-            String issue = problem.getText().toString().trim();
 
-            if (n.isEmpty() || p.isEmpty()
-                    || d.isEmpty() || issue.isEmpty()) {
-                toast("أكمل جميع بيانات الطلب");
+            if (n.isEmpty() || p.isEmpty()) {
+                toast("أدخل اسم العميل ورقم الجوال");
                 return;
             }
 
-            JSONArray repairs = readArray("repairs");
+            JSONArray customers = readArray("customers");
 
             try {
-                JSONObject r = new JSONObject();
-                r.put("id", System.currentTimeMillis());
-                r.put("customer", n);
-                r.put("phone", p);
-                r.put("device", d);
-                r.put("problem", issue);
-                r.put("status",
-                    statusSpinner.getSelectedItem().toString());
+                JSONObject c = new JSONObject();
+                c.put("name", n);
+                c.put("phone", p);
+                c.put("nationalAddress",
+                    nationalAddress.getText().toString().trim());
+                c.put("buildingNumber",
+                    buildingNumber.getText().toString().trim());
+                c.put("district", district.getText().toString().trim());
+                c.put("city", city.getText().toString().trim());
+                c.put("postalCode",
+                    postalCode.getText().toString().trim());
+                c.put("additionalNumber",
+                    additionalNumber.getText().toString().trim());
+                c.put("taxNumber", taxNumber.getText().toString().trim());
+                c.put("identifierType",
+                    identifierType.getText().toString().trim());
+                c.put("identifierValue",
+                    identifierValue.getText().toString().trim());
 
-                repairs.put(r);
-                saveArray("repairs", repairs);
-
-                toast("تم حفظ طلب الصيانة");
-                showRepairs();
+                customers.put(c);
+                saveArray("customers", customers);
+                toast("تم حفظ بيانات العميل");
+                showCustomers();
             } catch (Exception e) {
-                toast("تعذر حفظ الطلب");
+                toast("تعذر حفظ بيانات العميل");
             }
         });
 
-        addButton("عرض طلبات الصيانة", this::showRepairList);
+        addButton("عرض العملاء المسجلين", this::showCustomerList);
         addButton("العودة للرئيسية", this::showHome);
     }
 
-    private void showRepairList() {
+    private void showCustomerList() {
         setupLayout();
-        addTitle("قائمة طلبات الصيانة");
+        addTitle("العملاء المسجلون");
 
-        JSONArray repairs = readArray("repairs");
+        JSONArray customers = readArray("customers");
 
-        if (repairs.length() == 0) {
-            addText("لا توجد طلبات صيانة مسجلة.");
+        if (customers.length() == 0) {
+            addText("لا يوجد عملاء مسجلون.");
         }
 
-        for (int i = 0; i < repairs.length(); i++) {
+        for (int i = 0; i < customers.length(); i++) {
             try {
-                JSONObject r = repairs.getJSONObject(i);
-                final long id = r.optLong("id");
-                String status = r.optString("status", "جديد");
+                JSONObject c = customers.getJSONObject(i);
 
                 addText(
-                    "العميل: " + r.optString("customer")
-                    + "\nالجوال: " + r.optString("phone")
-                    + "\nالجهاز: " + r.optString("device")
-                    + "\nالعطل: " + r.optString("problem")
-                    + "\nالحالة: " + status
+                    "الاسم: " + c.optString("name")
+                    + "\nالجوال: " + c.optString("phone")
+                    + "\nالعنوان الوطني: "
+                    + c.optString("nationalAddress", "")
+                    + "\nرقم المبنى: "
+                    + c.optString("buildingNumber", "")
+                    + "\nالحي: " + c.optString("district", "")
+                    + "\nالمدينة: " + c.optString("city", "")
+                    + "\nالرمز البريدي: "
+                    + c.optString("postalCode", "")
+                    + "\nالرقم الإضافي: "
+                    + c.optString("additionalNumber", "")
+                    + "\nالرقم الضريبي: "
+                    + c.optString("taxNumber", "")
+                    + "\nنوع المعرّف الآخر: "
+                    + c.optString("identifierType", "")
+                    + "\nرقم المعرّف الآخر: "
+                    + c.optString("identifierValue", "")
                 );
-
-                addButton("تحديث حالة الطلب", () ->
-                    updateRepairStatus(id));
             } catch (Exception ignored) {}
         }
 
-        addButton("إضافة طلب صيانة", this::showRepairs);
+        addButton("إضافة عميل", this::showCustomers);
         addButton("العودة للرئيسية", this::showHome);
     }
 
-    private void updateRepairStatus(long id) {
-        JSONArray repairs = readArray("repairs");
+    // كرت الأصناف
+    private void showItems() {
+        setupLayout();
+        addTitle("كرت الأصناف");
 
-        for (int i = 0; i < repairs.length(); i++) {
+        EditText itemNumber = addInput("رقم الصنف");
+        EditText itemName = addInput("نوع الصنف / اسم الصنف");
+
+        TextView unitLabel = new TextView(this);
+        unitLabel.setText("الوحدة");
+        unitLabel.setTextSize(16);
+        unitLabel.setTextColor(Color.DKGRAY);
+        layout.addView(unitLabel);
+
+        Spinner unitSpinner = new Spinner(this);
+        ArrayAdapter<String> unitAdapter = new ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, units);
+        unitAdapter.setDropDownViewResource(
+            android.R.layout.simple_spinner_dropdown_item);
+        unitSpinner.setAdapter(unitAdapter);
+        layout.addView(unitSpinner);
+
+        EditText costInput = addNumberInput("سعر التكلفة بالريال");
+        EditText saleInput = addNumberInput("سعر البيع قبل الضريبة");
+
+        CheckBox taxCheck = new CheckBox(this);
+        taxCheck.setText("تطبيق ضريبة القيمة المضافة 15%");
+        taxCheck.setTextSize(16);
+        taxCheck.setChecked(true);
+        layout.addView(taxCheck);
+
+        TextView totalLabel = new TextView(this);
+        totalLabel.setTextSize(19);
+        totalLabel.setTextColor(blue);
+        totalLabel.setPadding(0, 16, 0, 16);
+        layout.addView(totalLabel);
+
+        Runnable calculate = () -> {
             try {
-                JSONObject r = repairs.getJSONObject(i);
+                double sale = Double.parseDouble(
+                    saleInput.getText().toString().trim());
 
-                if (r.optLong("id") == id) {
-                    String current = r.optString("status", "جديد");
-                    int next = 0;
+                double total = taxCheck.isChecked()
+                    ? sale * (1 + TAX_RATE) : sale;
 
-                    for (int j = 0; j < statuses.length; j++) {
-                        if (statuses[j].equals(current)) {
-                            next = (j + 1) % statuses.length;
-                            break;
-                        }
-                    }
+                totalLabel.setText(
+                    "سعر البيع شامل الضريبة: "
+                    + String.format(Locale.US, "%.2f", total)
+                    + " ريال"
+                );
+            } catch (Exception e) {
+                totalLabel.setText(
+                    "سعر البيع شامل الضريبة: —");
+            }
+        };
 
-                    r.put("status", statuses[next]);
-                    saveArray("repairs", repairs);
-                    toast("الحالة الجديدة: " + statuses[next]);
-                    showRepairList();
+        saleInput.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(
+                CharSequence s, int start, int count, int after) {}
+            public void onTextChanged(
+                CharSequence s, int start, int before, int count) {
+                calculate.run();
+            }
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        taxCheck.setOnCheckedChangeListener(
+            (buttonView, isChecked) -> calculate.run());
+
+        calculate.run();
+
+        addButton("حفظ الصنف", () -> {
+            String number = itemNumber.getText().toString().trim();
+            String name = itemName.getText().toString().trim();
+            String costText = costInput.getText().toString().trim();
+            String saleText = saleInput.getText().toString().trim();
+
+            if (number.isEmpty() || name.isEmpty()
+                    || costText.isEmpty() || saleText.isEmpty()) {
+                toast("أكمل رقم الصنف واسمه والأسعار");
+                return;
+            }
+
+            double cost;
+            double sale;
+
+            try {
+                cost = Double.parseDouble(costText);
+                sale = Double.parseDouble(saleText);
+
+                if (cost < 0 || sale < 0) {
+                    toast("لا يمكن إدخال سعر سالب");
                     return;
                 }
+            } catch (Exception e) {
+                toast("تحقق من صحة الأسعار");
+                return;
+            }
+
+            JSONArray items = readArray("items");
+
+            for (int i = 0; i < items.length(); i++) {
+                if (items.optJSONObject(i) != null
+                        && number.equalsIgnoreCase(
+                            items.optJSONObject(i).optString("number"))) {
+                    toast("رقم الصنف مسجل مسبقًا");
+                    return;
+                }
+            }
+
+            try {
+                double total = taxCheck.isChecked()
+                    ? sale * (1 + TAX_RATE) : sale;
+
+                JSONObject item = new JSONObject();
+                item.put("number", number);
+                item.put("name", name);
+                item.put("unit",
+                    unitSpinner.getSelectedItem().toString());
+                item.put("cost", cost);
+                item.put("sale", sale);
+                item.put("taxEnabled", taxCheck.isChecked());
+                item.put("taxRate",
+                    taxCheck.isChecked() ? TAX_RATE : 0);
+                item.put("saleWithTax", total);
+
+                items.put(item);
+                saveArray("items", items);
+
+                toast("تم حفظ الصنف بنجاح");
+                showItems();
+            } catch (Exception e) {
+                toast("تعذر حفظ الصنف");
+            }
+        });
+
+        addButton("عرض الأصناف المسجلة", this::showItemList);
+        addButton("العودة للرئيسية", this::showHome);
+    }
+
+    private void showItemList() {
+        setupLayout();
+        addTitle("الأصناف المسجلة");
+
+        JSONArray items = readArray("items");
+
+        if (items.length() == 0) {
+            addText("لا توجد أصناف مسجلة.");
+        }
+
+        for (int i = 0; i < items.length(); i++) {
+            try {
+                JSONObject item = items.getJSONObject(i);
+
+                String taxStatus = item.optBoolean("taxEnabled", true)
+                    ? "15%" : "غير مطبقة";
+
+                addText(
+                    "رقم الصنف: " + item.optString("number")
+                    + "\nنوع الصنف: " + item.optString("name")
+                    + "\nالوحدة: " + item.optString("unit")
+                    + "\nسعر التكلفة: "
+                    + money(item.optDouble("cost"))
+                    + " ريال"
+                    + "\nسعر البيع: "
+                    + money(item.optDouble("sale"))
+                    + " ريال"
+                    + "\nالضريبة: " + taxStatus
+                    + "\nسعر البيع شامل الضريبة: "
+                    + money(item.optDouble("saleWithTax"))
+                    + " ريال"
+                );
             } catch (Exception ignored) {}
         }
 
-        toast("لم يتم العثور على الطلب");
+        addButton("إضافة صنف", this::showItems);
+        addButton("العودة للرئيسية", this::showHome);
+    }
+
+    private String money(double value) {
+        return String.format(Locale.US, "%.2f", value);
     }
 
     private void addText(String text) {
@@ -383,6 +418,7 @@ private void showCustomerList() {
         item.setTextColor(Color.DKGRAY);
         item.setPadding(8, 14, 8, 14);
         layout.addView(item);
+
         View line = new View(this);
         line.setBackgroundColor(Color.LTGRAY);
         layout.addView(line,
