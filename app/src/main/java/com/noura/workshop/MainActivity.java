@@ -16,6 +16,10 @@ public class MainActivity extends Activity {
     private LinearLayout layout;
     private SharedPreferences prefs;
 
+    private final String[] statuses = {
+        "جديد", "قيد الإصلاح", "جاهز للتسليم", "تم التسليم"
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -24,13 +28,15 @@ public class MainActivity extends Activity {
     }
 
     private void setupLayout() {
+        ScrollView scroll = new ScrollView(this);
         layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(24, 32, 24, 24);
+        layout.setPadding(24, 24, 24, 24);
         layout.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         layout.setBackgroundColor(Color.rgb(245, 248, 252));
         layout.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        setContentView(layout);
+        scroll.addView(layout);
+        setContentView(scroll);
     }
 
     private void addTitle(String text) {
@@ -46,114 +52,96 @@ public class MainActivity extends Activity {
     private void addButton(String text, Runnable action) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(17);
+        button.setTextSize(16);
         button.setTextColor(Color.WHITE);
         button.setBackgroundTintList(
-            android.content.res.ColorStateList.valueOf(blue)
-        );
+            android.content.res.ColorStateList.valueOf(blue));
 
         LinearLayout.LayoutParams params =
             new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-        params.setMargins(0, 8, 0, 8);
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 6, 0, 6);
         layout.addView(button, params);
-
         button.setOnClickListener(v -> action.run());
-    }
-
-    private void showHome() {
-        setupLayout();
-        addTitle("مركز نوره للصيانة");
-
-        TextView subtitle = new TextView(this);
-        subtitle.setText("إدارة العملاء وأعمال الصيانة والفواتير");
-        subtitle.setTextSize(16);
-        subtitle.setGravity(Gravity.CENTER);
-        layout.addView(subtitle);
-
-        addButton("إدارة العملاء", this::showCustomers);
-        addButton("طلبات الصيانة",
-            () -> showSection("طلبات الصيانة",
-                "يمكنك هنا متابعة طلبات الصيانة ومراحل التنفيذ."));
-        addButton("الفواتير والمدفوعات",
-            () -> showSection("الفواتير والمدفوعات",
-                "سيُخصص هذا القسم للفواتير والمبالغ المدفوعة والمتبقية."));
-        addButton("عروض الأسعار",
-            () -> showSection("عروض الأسعار",
-                "سيُخصص هذا القسم لإعداد عروض الأسعار للعملاء."));
-    }
-
-    private void showSection(String title, String message) {
-        setupLayout();
-        addTitle(title);
-
-        TextView info = new TextView(this);
-        info.setText(message);
-        info.setTextSize(18);
-        info.setTextColor(Color.DKGRAY);
-        info.setPadding(0, 12, 0, 24);
-        layout.addView(info);
-
-        addButton("العودة للرئيسية", this::showHome);
     }
 
     private EditText addInput(String hint) {
         EditText input = new EditText(this);
         input.setHint(hint);
         input.setTextSize(16);
-        input.setSingleLine(true);
         input.setPadding(12, 8, 12, 8);
         layout.addView(input,
             new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
+                LinearLayout.LayoutParams.WRAP_CONTENT));
         return input;
+    }
+
+    private JSONArray readArray(String key) {
+        try {
+            return new JSONArray(prefs.getString(key, "[]"));
+        } catch (Exception e) {
+            return new JSONArray();
+        }
+    }
+
+    private void saveArray(String key, JSONArray array) {
+        prefs.edit().putString(key, array.toString()).apply();
+    }
+
+    private void showHome() {
+        setupLayout();
+        addTitle("مركز نوره للصيانة");
+
+        addButton("إدارة العملاء", this::showCustomers);
+        addButton("طلبات الصيانة", this::showRepairs);
+        addButton("الفواتير والمدفوعات",
+            () -> showSection("الفواتير والمدفوعات",
+                "سيتم تطوير الفواتير في الخطوة التالية."));
+        addButton("عروض الأسعار",
+            () -> showSection("عروض الأسعار",
+                "سيتم تطوير عروض الأسعار لاحقًا."));
+    }
+
+    private void showSection(String title, String message) {
+        setupLayout();
+        addTitle(title);
+        TextView info = new TextView(this);
+        info.setText(message);
+        info.setTextSize(18);
+        layout.addView(info);
+        addButton("العودة للرئيسية", this::showHome);
     }
 
     private void showCustomers() {
         setupLayout();
         addTitle("إدارة العملاء");
 
-        EditText nameInput = addInput("اسم العميل");
-        EditText phoneInput = addInput("رقم الجوال");
+        EditText name = addInput("اسم العميل");
+        EditText phone = addInput("رقم الجوال");
+        phone.setInputType(3);
 
         addButton("حفظ العميل", () -> {
-            String name = nameInput.getText().toString().trim();
-            String phone = phoneInput.getText().toString().trim();
+            String n = name.getText().toString().trim();
+            String p = phone.getText().toString().trim();
 
-            if (name.isEmpty() || phone.isEmpty()) {
-                Toast.makeText(this,
-                    "أدخل اسم العميل ورقم الجوال",
-                    Toast.LENGTH_SHORT).show();
+            if (n.isEmpty() || p.isEmpty()) {
+                toast("أدخل اسم العميل ورقم الجوال");
                 return;
             }
 
+            JSONArray customers = readArray("customers");
             try {
-                JSONArray customers = new JSONArray(
-                    prefs.getString("customers", "[]")
-                );
-
-                JSONObject customer = new JSONObject();
-                customer.put("name", name);
-                customer.put("phone", phone);
-                customers.put(customer);
-
-                prefs.edit()
-                    .putString("customers", customers.toString())
-                    .apply();
-
-                Toast.makeText(this,
-                    "تم حفظ بيانات العميل",
-                    Toast.LENGTH_SHORT).show();
-
+                JSONObject c = new JSONObject();
+                c.put("name", n);
+                c.put("phone", p);
+                customers.put(c);
+                saveArray("customers", customers);
+                toast("تم حفظ العميل");
                 showCustomers();
             } catch (Exception e) {
-                Toast.makeText(this,
-                    "تعذر حفظ بيانات العميل",
-                    Toast.LENGTH_SHORT).show();
+                toast("تعذر حفظ العميل");
             }
         });
 
@@ -166,38 +154,158 @@ public class MainActivity extends Activity {
         setupLayout();
         addTitle("العملاء المسجلون");
 
-        try {
-            JSONArray customers = new JSONArray(
-                prefs.getString("customers", "[]")
-            );
+        JSONArray customers = readArray("customers");
 
-            if (customers.length() == 0) {
-                TextView empty = new TextView(this);
-                empty.setText("لا يوجد عملاء مسجلون حتى الآن");
-                empty.setTextSize(17);
-                layout.addView(empty);
-            }
+        if (customers.length() == 0) {
+            addText("لا يوجد عملاء مسجلون.");
+        }
 
-            for (int i = 0; i < customers.length(); i++) {
-                JSONObject customer = customers.getJSONObject(i);
-
-                TextView item = new TextView(this);
-                item.setText(
-                    "الاسم: " + customer.getString("name")
-                    + "\nالجوال: " + customer.getString("phone")
-                );
-                item.setTextSize(17);
-                item.setTextColor(Color.DKGRAY);
-                item.setPadding(8, 16, 8, 16);
-                layout.addView(item);
-            }
-        } catch (Exception e) {
-            Toast.makeText(this,
-                "تعذر عرض العملاء",
-                Toast.LENGTH_SHORT).show();
+        for (int i = 0; i < customers.length(); i++) {
+            try {
+                JSONObject c = customers.getJSONObject(i);
+                addText("الاسم: " + c.optString("name")
+                    + "\nالجوال: " + c.optString("phone"));
+            } catch (Exception ignored) {}
         }
 
         addButton("إضافة عميل", this::showCustomers);
         addButton("العودة للرئيسية", this::showHome);
+    }
+
+    private void showRepairs() {
+        setupLayout();
+        addTitle("طلبات الصيانة");
+
+        EditText customer = addInput("اسم العميل");
+        EditText phone = addInput("رقم جوال العميل");
+        phone.setInputType(3);
+        EditText device = addInput("الجهاز أو المعدة");
+        EditText problem = addInput("وصف العطل");
+
+        Spinner statusSpinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+            this, android.R.layout.simple_spinner_item, statuses);
+        adapter.setDropDownViewResource(
+            android.R.layout.simple_spinner_dropdown_item);
+        statusSpinner.setAdapter(adapter);
+        layout.addView(statusSpinner);
+
+        addButton("حفظ طلب الصيانة", () -> {
+            String n = customer.getText().toString().trim();
+            String p = phone.getText().toString().trim();
+            String d = device.getText().toString().trim();
+            String issue = problem.getText().toString().trim();
+
+            if (n.isEmpty() || p.isEmpty()
+                    || d.isEmpty() || issue.isEmpty()) {
+                toast("أكمل جميع بيانات الطلب");
+                return;
+            }
+
+            JSONArray repairs = readArray("repairs");
+
+            try {
+                JSONObject r = new JSONObject();
+                r.put("id", System.currentTimeMillis());
+                r.put("customer", n);
+                r.put("phone", p);
+                r.put("device", d);
+                r.put("problem", issue);
+                r.put("status",
+                    statusSpinner.getSelectedItem().toString());
+
+                repairs.put(r);
+                saveArray("repairs", repairs);
+
+                toast("تم حفظ طلب الصيانة");
+                showRepairs();
+            } catch (Exception e) {
+                toast("تعذر حفظ الطلب");
+            }
+        });
+
+        addButton("عرض طلبات الصيانة", this::showRepairList);
+        addButton("العودة للرئيسية", this::showHome);
+    }
+
+    private void showRepairList() {
+        setupLayout();
+        addTitle("قائمة طلبات الصيانة");
+
+        JSONArray repairs = readArray("repairs");
+
+        if (repairs.length() == 0) {
+            addText("لا توجد طلبات صيانة مسجلة.");
+        }
+
+        for (int i = 0; i < repairs.length(); i++) {
+            try {
+                JSONObject r = repairs.getJSONObject(i);
+                final long id = r.optLong("id");
+                String status = r.optString("status", "جديد");
+
+                addText(
+                    "العميل: " + r.optString("customer")
+                    + "\nالجوال: " + r.optString("phone")
+                    + "\nالجهاز: " + r.optString("device")
+                    + "\nالعطل: " + r.optString("problem")
+                    + "\nالحالة: " + status
+                );
+
+                addButton("تحديث حالة الطلب", () ->
+                    updateRepairStatus(id));
+            } catch (Exception ignored) {}
+        }
+
+        addButton("إضافة طلب صيانة", this::showRepairs);
+        addButton("العودة للرئيسية", this::showHome);
+    }
+
+    private void updateRepairStatus(long id) {
+        JSONArray repairs = readArray("repairs");
+
+        for (int i = 0; i < repairs.length(); i++) {
+            try {
+                JSONObject r = repairs.getJSONObject(i);
+
+                if (r.optLong("id") == id) {
+                    String current = r.optString("status", "جديد");
+                    int next = 0;
+
+                    for (int j = 0; j < statuses.length; j++) {
+                        if (statuses[j].equals(current)) {
+                            next = (j + 1) % statuses.length;
+                            break;
+                        }
+                    }
+
+                    r.put("status", statuses[next]);
+                    saveArray("repairs", repairs);
+                    toast("الحالة الجديدة: " + statuses[next]);
+                    showRepairList();
+                    return;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        toast("لم يتم العثور على الطلب");
+    }
+
+    private void addText(String text) {
+        TextView item = new TextView(this);
+        item.setText(text);
+        item.setTextSize(16);
+        item.setTextColor(Color.DKGRAY);
+        item.setPadding(8, 14, 8, 14);
+        layout.addView(item);
+        View line = new View(this);
+        line.setBackgroundColor(Color.LTGRAY);
+        layout.addView(line,
+            new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1));
+    }
+
+    private void toast(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 }
