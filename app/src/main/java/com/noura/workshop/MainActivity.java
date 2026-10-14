@@ -114,41 +114,93 @@ public class MainActivity extends Activity {
         addButton("العودة للرئيسية", this::showHome);
     }
 
-    private void showCustomers() {
-        setupLayout();
-        addTitle("إدارة العملاء");
+    
+private void showCustomers() {
+    setupLayout();
+    addTitle("إدارة العملاء");
 
-        EditText name = addInput("اسم العميل");
-        EditText phone = addInput("رقم الجوال");
-        phone.setInputType(3);
+    EditText name = addInput("اسم العميل أو المنشأة");
+    EditText phone = addInput("رقم الجوال");
+    phone.setInputType(3);
 
-        addButton("حفظ العميل", () -> {
-            String n = name.getText().toString().trim();
-            String p = phone.getText().toString().trim();
+    EditText nationalAddress =
+        addInput("العنوان الوطني الكامل");
 
-            if (n.isEmpty() || p.isEmpty()) {
-                toast("أدخل اسم العميل ورقم الجوال");
-                return;
-            }
+    EditText buildingNumber =
+        addInput("رقم المبنى (اختياري)");
 
-            JSONArray customers = readArray("customers");
-            try {
-                JSONObject c = new JSONObject();
-                c.put("name", n);
-                c.put("phone", p);
-                customers.put(c);
-                saveArray("customers", customers);
-                toast("تم حفظ العميل");
-                showCustomers();
-            } catch (Exception e) {
-                toast("تعذر حفظ العميل");
-            }
-        });
+    EditText district =
+        addInput("الحي (اختياري)");
 
-        addButton("عرض العملاء المسجلين",
-            this::showCustomerList);
-        addButton("العودة للرئيسية", this::showHome);
-    }
+    EditText city =
+        addInput("المدينة (اختياري)");
+
+    EditText postalCode =
+        addInput("الرمز البريدي (اختياري)");
+
+    EditText additionalNumber =
+        addInput("الرقم الإضافي للعنوان (اختياري)");
+
+    EditText taxNumber =
+        addInput("الرقم الضريبي (اختياري)");
+
+    EditText identifierType =
+        addInput("نوع المعرّف الآخر (سجل تجاري، رقم منشأة...)");
+
+    EditText identifierValue =
+        addInput("رقم المعرّف الآخر (اختياري)");
+
+    addButton("حفظ العميل", () -> {
+        String n = name.getText().toString().trim();
+        String p = phone.getText().toString().trim();
+
+        if (n.isEmpty() || p.isEmpty()) {
+            toast("أدخل اسم العميل ورقم الجوال");
+            return;
+        }
+
+        JSONArray customers = readArray("customers");
+
+        try {
+            JSONObject c = new JSONObject();
+            c.put("name", n);
+            c.put("phone", p);
+            c.put("nationalAddress",
+                nationalAddress.getText().toString().trim());
+            c.put("buildingNumber",
+                buildingNumber.getText().toString().trim());
+            c.put("district",
+                district.getText().toString().trim());
+            c.put("city",
+                city.getText().toString().trim());
+            c.put("postalCode",
+                postalCode.getText().toString().trim());
+            c.put("additionalNumber",
+                additionalNumber.getText().toString().trim());
+            c.put("taxNumber",
+                taxNumber.getText().toString().trim());
+            c.put("identifierType",
+                identifierType.getText().toString().trim());
+            c.put("identifierValue",
+                identifierValue.getText().toString().trim());
+
+            customers.put(c);
+            saveArray("customers", customers);
+
+            toast("تم حفظ بيانات العميل");
+            showCustomers();
+
+        } catch (Exception e) {
+            toast("تعذر حفظ بيانات العميل");
+        }
+    });
+
+    addButton("عرض العملاء المسجلين",
+        this::showCustomerList);
+
+    addButton("العودة للرئيسية", this::showHome);
+}
+
 
     private void showCustomerList() {
         setupLayout();
