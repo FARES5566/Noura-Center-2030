@@ -202,27 +202,49 @@ private void showCustomers() {
 }
 
 
-    private void showCustomerList() {
-        setupLayout();
-        addTitle("العملاء المسجلون");
+   
+private void showCustomerList() {
+    setupLayout();
+    addTitle("العملاء المسجلون");
 
-        JSONArray customers = readArray("customers");
+    JSONArray customers = readArray("customers");
 
-        if (customers.length() == 0) {
-            addText("لا يوجد عملاء مسجلون.");
-        }
-
-        for (int i = 0; i < customers.length(); i++) {
-            try {
-                JSONObject c = customers.getJSONObject(i);
-                addText("الاسم: " + c.optString("name")
-                    + "\nالجوال: " + c.optString("phone"));
-            } catch (Exception ignored) {}
-        }
-
-        addButton("إضافة عميل", this::showCustomers);
-        addButton("العودة للرئيسية", this::showHome);
+    if (customers.length() == 0) {
+        addText("لا يوجد عملاء مسجلون.");
     }
+
+    for (int i = 0; i < customers.length(); i++) {
+        try {
+            JSONObject c = customers.getJSONObject(i);
+
+            String info =
+                "الاسم: " + c.optString("name")
+                + "\nالجوال: " + c.optString("phone")
+                + "\nالعنوان الوطني: "
+                + c.optString("nationalAddress", "")
+                + "\nرقم المبنى: "
+                + c.optString("buildingNumber", "")
+                + "\nالحي: " + c.optString("district", "")
+                + "\nالمدينة: " + c.optString("city", "")
+                + "\nالرمز البريدي: "
+                + c.optString("postalCode", "")
+                + "\nالرقم الإضافي: "
+                + c.optString("additionalNumber", "")
+                + "\nالرقم الضريبي: "
+                + c.optString("taxNumber", "")
+                + "\nنوع المعرّف الآخر: "
+                + c.optString("identifierType", "")
+                + "\nرقم المعرّف الآخر: "
+                + c.optString("identifierValue", "");
+
+            addText(info);
+
+        } catch (Exception ignored) {}
+    }
+
+    addButton("إضافة عميل", this::showCustomers);
+    addButton("العودة للرئيسية", this::showHome);
+}
 
     private void showRepairs() {
         setupLayout();
