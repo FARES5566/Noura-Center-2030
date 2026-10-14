@@ -12,13 +12,23 @@ import android.text.InputType;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.Locale;
+import android.content.Intent;
+import android.net.Uri;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.widget.ImageView;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 
 public class MainActivity extends Activity {
 
     private final int blue = Color.rgb(25, 95, 190);
     private LinearLayout layout;
     private SharedPreferences prefs;
-
+    private ImageView logoPreview;
+    private String selectedLogoPath = "";
+    private static final int PICK_LOGO_REQUEST = 2001;
     private final String[] units = {"صيانة", "قطع غيار"};
     private static final double TAX_RATE = 0.15;
 
@@ -115,6 +125,144 @@ public class MainActivity extends Activity {
             () -> showSection("عروض الأسعار",
                 "سيتم تطوير عروض الأسعار لاحقًا."));
     }
+
+private void showCompanyData() {
+    setupLayout();
+    addTitle("بيانات المنشأة");
+
+    EditText companyName = addInput("اسم المنشأة");
+    companyName.setText(prefs.getString("company_name", ""));
+
+    EditText address = addInput("العنوان الوطني");
+    address.setText(prefs.getString("company_address", ""));
+
+    EditText taxNumber = addInput("الرقم الضريبي (اختياري)");
+    taxNumber.setInputType(InputType.TYPE_CLASS_NUMBER);
+    taxNumber.setText(prefs.getString("company_tax", ""));
+
+    EditText otherId = addInput("المعرّف الآخر (اختياري)");
+    otherId.setText(prefs.getString("company_other_id", ""));
+
+    TextView logoLabel = new TextView(this);
+    logoLabel.setText("شعار المنشأة");
+    logoLabel.setTextSize(18);
+    logoLabel.setTextColor(blue);
+    logoLabel.setPadding(0, 18, 0, 8);
+    layout.addView(logoLabel);
+
+    logoPreview = new ImageView(this);
+    logoPreview.setAdjustViewBounds(true);
+    logoPreview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+    LinearLayout.LayoutParams logoParams =
+        new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 240);
+    layout.addView(logoPreview, logoParams);
+
+    selectedLogoPath = prefs.getString("company_logo_path", "");
+    loadCompanyLogo();
+
+    addButton("اختيار شعار من الجهاز", () -> {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.setType("image/*");
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(intent, PICK_LOGO_REQUEST);
+    });
+
+    addButton("حفظ بيانات المنشأة", () -> {
+        String name = companyName.getText().toString().trim();
+
+        if (name.isEmpty()) {
+            toast("أدخل اسم المنشأة");
+            return;
+        }
+
+        prefs.edit()
+            .putString("company_name", name)
+            .putString("company_address",
+                address.getText().toString().trim())
+            .putString("company_tax",
+                taxNumber.getText().toString().trim())
+            .putString("company_other_id",
+                otherId.getText().toString().trim())
+            .putString("company_logo_path", selectedLogoPath)
+            .apply();
+
+        toast("تم حفظ بيانات المنشأة");
+    });
+
+    addButton("العودة للرئيسية", this::showHome);
+}
+
+@Override
+protected void onActivityResult(
+        int requestCode, int resultCode, Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+
+    if (requestCode == PICK_LOGO_REQUEST
+            && resultCode == RESULT_OK
+            && data != null
+            && data.getData() != null) {
+
+        Uri uri = data.getData();
+
+        try (InputStream input = getContentResolver()
+                .openInputStream(uri)) {
+
+            if (input == null) {
+                toast("تعذر فتح الصورة");
+                return;
+            }
+
+            Bitmap bitmap = BitmapFactory.decodeStream(input);
+
+            if (bitmap == null) {
+                toast("صيغة الصورة غير مدعومة");
+                return;
+            }
+
+            File logoFile = new File(getFilesDir(), "company_logo.png");
+
+            try (FileOutputStream output =
+                    new FileOutputStream(logoFile)) {
+                bitmap.compress(
+                    Bitmap.CompressFormat.PNG, 100, output);
+                output.flush();
+            }
+
+            selectedLogoPath = logoFile.getAbsolutePath();
+
+            prefs.edit()
+                .putString("company_logo_path", selectedLogoPath)
+                .apply();
+
+            if (logoPreview != null) {
+                logoPreview.setImageBitmap(bitmap);
+            }
+
+            toast("تم اختيار شعار المنشأة");
+
+        } catch (Exception e) {
+            toast("تعذر حفظ الشعار");
+        }
+    }
+}
+
+private void loadCompanyLogo() {
+    if (logoPreview == null || selectedLogoPath.isEmpty()) {
+        return;
+    }
+
+    File file = new File(selectedLogoPath);
+
+    if (file.exists()) {
+        Bitmap bitmap = BitmapFactory.decodeFile(file.getAbsolutePath());
+
+        if (bitmap != null) {
+            logoPreview.setImageBitmap(bitmap);
+        }
+    }
+}
 
     private void showSection(String title, String message) {
         setupLayout();
