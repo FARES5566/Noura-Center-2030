@@ -50,7 +50,7 @@ public class MainActivity extends Activity {
         scroll.addView(layout);
         setContentView(scroll);
     }
-
+addButton("بيانات المنشأة", this::showCompanyData);
     private void addTitle(String text) {
         TextView title = new TextView(this);
         title.setText(text);
