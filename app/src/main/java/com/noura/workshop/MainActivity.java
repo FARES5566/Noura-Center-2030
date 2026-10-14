@@ -50,7 +50,6 @@ public class MainActivity extends Activity {
         scroll.addView(layout);
         setContentView(scroll);
     }
-addButton("بيانات المنشأة", this::showCompanyData);
     private void addTitle(String text) {
         TextView title = new TextView(this);
         title.setText(text);
@@ -112,19 +111,16 @@ addButton("بيانات المنشأة", this::showCompanyData);
         prefs.edit().putString(key, array.toString()).apply();
     }
 
-    private void showHome() {
-        setupLayout();
-        addTitle("مركز نوره للصيانة");
+ 
+private void showHome() {
+    setupLayout();
+    addTitle("مركز نوره للصيانة");
 
-        addButton("إدارة العملاء", this::showCustomers);
-        addButton("كرت الأصناف", this::showItems);
-        addButton("الفواتير والمدفوعات",
-            () -> showSection("الفواتير والمدفوعات",
-                "سيتم تطوير الفواتير في الخطوة التالية."));
-        addButton("عروض الأسعار",
-            () -> showSection("عروض الأسعار",
-                "سيتم تطوير عروض الأسعار لاحقًا."));
-    }
+    addButton("بيانات المنشأة", this::showCompanyData);
+    addButton("إدارة العملاء", this::showCustomers);
+    addButton("كرت الأصناف", this::showItems);
+    addButton("إدارة المبيعات", this::showSales);
+}
 
 private void showCompanyData() {
     setupLayout();
@@ -554,6 +550,372 @@ private void loadCompanyLogo() {
         addButton("إضافة صنف", this::showItems);
         addButton("العودة للرئيسية", this::showHome);
     }
+
+private void showSales() {
+    setupLayout();
+    addTitle("إدارة المبيعات");
+
+    addButton("إنشاء عرض سعر",
+        () -> showSalesDocument(false));
+
+    addButton("البحث عن عروض الأسعار",
+        () -> showSalesSearch(false));
+
+    addButton("إنشاء فاتورة مبيعات",
+        () -> showSalesDocument(true));
+
+    addButton("البحث عن فواتير المبيعات",
+        () -> showSalesSearch(true));
+
+    addButton("العودة للرئيسية", this::showHome);
+}
+
+private void showSalesDocument(boolean invoice) {
+    setupLayout();
+    addTitle(invoice ? "فاتورة مبيعات جديدة" : "عرض سعر جديد");
+
+    JSONArray customers = readArray("customers");
+    java.util.ArrayList<String> customerLabels =
+        new java.util.ArrayList<>();
+    customerLabels.add("اختر العميل");
+
+    for (int i = 0; i < customers.length(); i++) {
+        JSONObject c = customers.optJSONObject(i);
+        if (c != null) {
+            customerLabels.add(
+                c.optString("name") + " - " + c.optString("phone"));
+        }
+    }
+
+    Spinner customerSpinner = new Spinner(this);
+    ArrayAdapter<String> adapter = new ArrayAdapter<>(
+        this, android.R.layout.simple_spinner_item, customerLabels);
+    adapter.setDropDownViewResource(
+        android.R.layout.simple_spinner_dropdown_item);
+    customerSpinner.setAdapter(adapter);
+    layout.addView(customerSpinner);
+
+    TextView customerDetails = new TextView(this);
+    customerDetails.setTextSize(15);
+    customerDetails.setTextColor(Color.DKGRAY);
+    layout.addView(customerDetails);
+
+    customerSpinner.setOnItemSelectedListener(
+        new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(
+                    android.widget.AdapterView<?> parent,
+                    View view, int position, long id) {
+                if (position > 0) {
+                    JSONObject c = customers.optJSONObject(position - 1);
+                    if (c != null) {
+                        customerDetails.setText(
+                            "الاسم: " + c.optString("name")
+                            + "\nالجوال: " + c.optString("phone")
+                            + "\nالعنوان الوطني: "
+                            + c.optString("nationalAddress")
+                            + "\nالرقم الضريبي: "
+                            + c.optString("taxNumber")
+                            + "\nالمعرّف الآخر: "
+                            + c.optString("identifierType") + " "
+                            + c.optString("identifierValue"));
+                    }
+                } else {
+                    customerDetails.setText("");
+                }
+            }
+
+            @Override
+            public void onNothingSelected(
+                    android.widget.AdapterView<?> parent) {}
+        });
+
+    addButton("إضافة عميل جديد", this::showCustomers);
+
+    JSONArray items = readArray("items");
+    java.util.ArrayList<String> itemLabels =
+        new java.util.ArrayList<>();
+    itemLabels.add("اختر الصنف");
+
+    for (int i = 0; i < items.length(); i++) {
+        JSONObject item = items.optJSONObject(i);
+        if (item != null) {
+            itemLabels.add(item.optString("number") + " - "
+                + item.optString("name"));
+        }
+    }
+
+    Spinner itemSpinner = new Spinner(this);
+    ArrayAdapter<String> itemAdapter = new ArrayAdapter<>(
+        this, android.R.layout.simple_spinner_item, itemLabels);
+    itemAdapter.setDropDownViewResource(
+        android.R.layout.simple_spinner_dropdown_item);
+    itemSpinner.setAdapter(itemAdapter);
+    layout.addView(itemSpinner);
+
+    EditText quantityInput = addNumberInput("الكمية");
+    TextView totals = new TextView(this);
+    totals.setTextSize(17);
+    totals.setTextColor(blue);
+    layout.addView(totals);
+
+    final double[] sale = {0};
+    final double[] taxRate = {0.15};
+
+    Runnable calculate = () -> {
+        try {
+            int pos = itemSpinner.getSelectedItemPosition();
+            double qty = Double.parseDouble(
+                quantityInput.getText().toString());
+            JSONObject item = items.optJSONObject(pos - 1);
+            if (pos <= 0 || item == null || qty <= 0) {
+                totals.setText("اختر صنفًا وأدخل كمية صحيحة");
+                return;
+            }
+            sale[0] = item.optDouble("sale") * qty;
+            taxRate[0] = item.optBoolean("taxEnabled", true)
+                ? item.optDouble("taxRate", 0.15) : 0;
+            double tax = sale[0] * taxRate[0];
+            totals.setText(
+                "الإجمالي قبل الضريبة: " + money(sale[0])
+                + " ريال\nالضريبة: " + money(tax)
+                + " ريال\nالإجمالي شامل الضريبة: "
+                + money(sale[0] + tax) + " ريال");
+        } catch (Exception e) {
+            totals.setText("اختر صنفًا وأدخل الكمية");
+        }
+    };
+
+    itemSpinner.setOnItemSelectedListener(
+        new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(
+                    android.widget.AdapterView<?> p,
+                    View v, int position, long id) {
+                calculate.run();
+            }
+
+            @Override
+            public void onNothingSelected(
+                    android.widget.AdapterView<?> p) {}
+        });
+
+    quantityInput.addTextChangedListener(new android.text.TextWatcher() {
+        public void beforeTextChanged(
+            CharSequence s, int start, int count, int after) {}
+        public void onTextChanged(
+            CharSequence s, int start, int before, int count) {
+            calculate.run();
+        }
+        public void afterTextChanged(android.text.Editable e) {}
+    });
+
+    EditText notes = addInput("ملاحظات (اختياري)");
+
+    addButton("حفظ المستند", () -> {
+        int customerPos = customerSpinner.getSelectedItemPosition();
+        int itemPos = itemSpinner.getSelectedItemPosition();
+
+        if (customerPos <= 0 || itemPos <= 0) {
+            toast("اختر العميل والصنف");
+            return;
+        }
+
+        double qty;
+        try {
+            qty = Double.parseDouble(
+                quantityInput.getText().toString().trim());
+            if (qty <= 0) {
+                toast("أدخل كمية أكبر من صفر");
+                return;
+            }
+        } catch (Exception e) {
+            toast("تحقق من الكمية");
+            return;
+        }
+
+        JSONObject c = customers.optJSONObject(customerPos - 1);
+        JSONObject item = items.optJSONObject(itemPos - 1);
+        if (c == null || item == null) {
+            toast("تعذر قراءة بيانات العميل أو الصنف");
+            return;
+        }
+
+        double subtotal = item.optDouble("sale") * qty;
+        double tax = subtotal * (item.optBoolean("taxEnabled", true)
+            ? item.optDouble("taxRate", 0.15) : 0);
+        double total = subtotal + tax;
+
+        String key = invoice ? "sales_invoices" : "sales_quotes";
+        JSONArray documents = readArray(key);
+        String prefix = invoice ? "INV-" : "QUO-";
+        String number = prefix + String.format(
+            Locale.US, "%06d", documents.length() + 1);
+
+        try {
+            JSONObject doc = new JSONObject();
+            doc.put("number", number);
+            doc.put("date", new java.text.SimpleDateFormat(
+                "yyyy-MM-dd", Locale.US).format(new java.util.Date()));
+            doc.put("customer", c);
+            doc.put("item", item);
+            doc.put("quantity", qty);
+            doc.put("subtotal", subtotal);
+            doc.put("tax", tax);
+            doc.put("total", total);
+            doc.put("notes", notes.getText().toString().trim());
+            doc.put("paid", 0);
+            doc.put("type", invoice ? "invoice" : "quote");
+
+            documents.put(doc);
+            saveArray(key, documents);
+            toast("تم حفظ المستند رقم " + number);
+            showSalesPreview(doc, invoice);
+        } catch (Exception e) {
+            toast("تعذر حفظ المستند");
+        }
+    });
+
+    addButton("العودة لإدارة المبيعات", this::showSales);
+}
+
+private void showSalesSearch(boolean invoice) {
+    setupLayout();
+    addTitle(invoice ? "البحث عن فواتير المبيعات"
+                    : "البحث عن عروض الأسعار");
+
+    EditText fromDate = addInput("من تاريخ YYYY-MM-DD");
+    EditText toDate = addInput("إلى تاريخ YYYY-MM-DD");
+    EditText customerName = addInput("اسم العميل (اختياري)");
+    EditText phone = addInput("رقم الجوال (اختياري)");
+
+    addButton("بحث", () -> {
+        setupLayout();
+        addTitle("نتائج البحث");
+
+        JSONArray docs = readArray(
+            invoice ? "sales_invoices" : "sales_quotes");
+
+        String from = fromDate.getText().toString().trim();
+        String to = toDate.getText().toString().trim();
+        String name = customerName.getText().toString().trim();
+        String mobile = phone.getText().toString().trim();
+        int count = 0;
+
+        for (int i = 0; i < docs.length(); i++) {
+            JSONObject d = docs.optJSONObject(i);
+            if (d == null) continue;
+
+            JSONObject c = d.optJSONObject("customer");
+            if (c == null) continue;
+
+            String date = d.optString("date");
+            String n = c.optString("name");
+            String p = c.optString("phone");
+
+            if (!from.isEmpty() && date.compareTo(from) < 0) continue;
+            if (!to.isEmpty() && date.compareTo(to) > 0) continue;
+            if (!name.isEmpty() &&
+                !n.toLowerCase(Locale.ROOT).contains(
+                    name.toLowerCase(Locale.ROOT))) continue;
+            if (!mobile.isEmpty() && !p.contains(mobile)) continue;
+
+            count++;
+            addText(d.optString("number") + "\nالتاريخ: " + date
+                + "\nالعميل: " + n + "\nالجوال: " + p
+                + "\nالإجمالي: " + money(d.optDouble("total"))
+                + " ريال");
+
+            final JSONObject selected = d;
+            addButton("عرض وطباعة " + d.optString("number"),
+                () -> showSalesPreview(selected, invoice));
+        }
+
+        if (count == 0) addText("لا توجد نتائج مطابقة.");
+        addButton("بحث جديد", () -> showSalesSearch(invoice));
+        addButton("العودة لإدارة المبيعات", this::showSales);
+    });
+
+    addButton("العودة لإدارة المبيعات", this::showSales);
+}
+
+private void showSalesPreview(JSONObject doc, boolean invoice) {
+    setupLayout();
+    addTitle(invoice ? "فاتورة مبيعات" : "عرض سعر");
+
+    JSONObject c = doc.optJSONObject("customer");
+    JSONObject item = doc.optJSONObject("item");
+
+    addText(prefs.getString("company_name", "مركز نوره للصيانة")
+        + "\nالعنوان: " + prefs.getString("company_address", "")
+        + "\nالرقم الضريبي: " + prefs.getString("company_tax", "")
+        + "\nرقم المستند: " + doc.optString("number")
+        + "\nالتاريخ: " + doc.optString("date"));
+
+    if (c != null) {
+        addText("بيانات العميل\nالاسم: " + c.optString("name")
+            + "\nالجوال: " + c.optString("phone")
+            + "\nالعنوان الوطني: " + c.optString("nationalAddress")
+            + "\nالرقم الضريبي: " + c.optString("taxNumber")
+            + "\nالمعرّف الآخر: " + c.optString("identifierType")
+            + " " + c.optString("identifierValue"));
+    }
+
+    if (item != null) {
+        addText("الصنف: " + item.optString("name")
+            + "\nرقم الصنف: " + item.optString("number")
+            + "\nالكمية: " + money(doc.optDouble("quantity"))
+            + "\nسعر الوحدة: " + money(item.optDouble("sale"))
+            + "\nالإجمالي قبل الضريبة: "
+            + money(doc.optDouble("subtotal"))
+            + "\nالضريبة: " + money(doc.optDouble("tax"))
+            + "\nالإجمالي: " + money(doc.optDouble("total")) + " ريال");
+    }
+
+    addText("ملاحظات: " + doc.optString("notes"));
+
+    addButton("طباعة / معاينة الطباعة", () -> {
+        android.webkit.WebView webView = new android.webkit.WebView(this);
+        String html = "<html><meta charset='UTF-8'><body dir='rtl' "
+            + "style='font-family:sans-serif;padding:20px'>"
+            + "<h2>" + (invoice ? "فاتورة مبيعات" : "عرض سعر") + "</h2>"
+            + "<h3>" + prefs.getString("company_name", "مركز نوره للصيانة")
+            + "</h3><p>رقم المستند: " + doc.optString("number")
+            + "</p><p>التاريخ: " + doc.optString("date")
+            + "</p><p>العميل: " + (c == null ? "" : c.optString("name"))
+            + "</p><p>الجوال: " + (c == null ? "" : c.optString("phone"))
+            + "</p><p>العنوان الوطني: "
+            + (c == null ? "" : c.optString("nationalAddress"))
+            + "</p><p>الصنف: " + (item == null ? "" : item.optString("name"))
+            + "</p><p>الكمية: " + doc.optDouble("quantity")
+            + "</p><p>الإجمالي قبل الضريبة: " + money(doc.optDouble("subtotal"))
+            + "</p><p>الضريبة: " + money(doc.optDouble("tax"))
+            + "</p><h3>الإجمالي: " + money(doc.optDouble("total"))
+            + " ريال</h3><p>ملاحظات: " + doc.optString("notes")
+            + "</p></body></html>";
+
+        webView.loadDataWithBaseURL(
+            null, html, "text/html", "UTF-8", null);
+
+        webView.setWebViewClient(new android.webkit.WebViewClient() {
+            @Override
+            public void onPageFinished(android.webkit.WebView view,
+                                       String url) {
+                android.print.PrintManager printManager =
+                    (android.print.PrintManager) getSystemService(
+                        PRINT_SERVICE);
+                android.print.PrintDocumentAdapter adapter =
+                    view.createPrintDocumentAdapter(
+                        invoice ? "فاتورة مبيعات" : "عرض سعر");
+                printManager.print(
+                    doc.optString("number"), adapter,
+                    new android.print.PrintAttributes.Builder().build());
+            }
+        });
+    });
+
+    addButton("العودة لإدارة المبيعات", this::showSales);
+}
 
     private String money(double value) {
         return String.format(Locale.US, "%.2f", value);
