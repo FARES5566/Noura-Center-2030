@@ -136,7 +136,19 @@ private void showCompanyData() {
     taxNumber.setInputType(InputType.TYPE_CLASS_NUMBER);
     taxNumber.setText(prefs.getString("company_tax", ""));
 
-    EditText otherId = addInput("المعرّف الآخر (اختياري)");
+    EditText buildingNumber = addNumberInput("رقم المبنى");
+    buildingNumber.setText(prefs.getString("company_building_number", ""));
+
+    EditText postalCode = addNumberInput("الرمز البريدي");
+    postalCode.setText(prefs.getString("company_postal_code", ""));
+
+    EditText additionalNumber = addNumberInput("الرقم الإضافي");
+    additionalNumber.setText(prefs.getString("company_additional_number", ""));
+
+    EditText otherIdType = addInput("نوع المعرّف الآخر (مثل السجل التجاري)");
+    otherIdType.setText(prefs.getString("company_other_id_type", ""));
+
+    EditText otherId = addInput("رقم المعرّف الآخر");
     otherId.setText(prefs.getString("company_other_id", ""));
 
     TextView logoLabel = new TextView(this);
@@ -181,6 +193,14 @@ private void showCompanyData() {
                 taxNumber.getText().toString().trim())
             .putString("company_other_id",
                 otherId.getText().toString().trim())
+            .putString("company_building_number",
+                buildingNumber.getText().toString().trim())
+            .putString("company_postal_code",
+                postalCode.getText().toString().trim())
+            .putString("company_additional_number",
+                additionalNumber.getText().toString().trim())
+            .putString("company_other_id_type",
+                otherIdType.getText().toString().trim())
             .putString("company_logo_path", selectedLogoPath)
             .apply();
 
@@ -575,23 +595,17 @@ private void showSalesDocument(boolean invoice) {
     addTitle(invoice ? "فاتورة مبيعات جديدة" : "عرض سعر جديد");
 
     JSONArray customers = readArray("customers");
-    java.util.ArrayList<String> customerLabels =
-        new java.util.ArrayList<>();
+    java.util.ArrayList<String> customerLabels = new java.util.ArrayList<>();
     customerLabels.add("اختر العميل");
-
     for (int i = 0; i < customers.length(); i++) {
         JSONObject c = customers.optJSONObject(i);
-        if (c != null) {
-            customerLabels.add(
-                c.optString("name") + " - " + c.optString("phone"));
-        }
+        if (c != null) customerLabels.add(c.optString("name") + " - " + c.optString("phone"));
     }
 
     Spinner customerSpinner = new Spinner(this);
-    ArrayAdapter<String> adapter = new ArrayAdapter<>(
-        this, android.R.layout.simple_spinner_item, customerLabels);
-    adapter.setDropDownViewResource(
-        android.R.layout.simple_spinner_dropdown_item);
+    ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
+        android.R.layout.simple_spinner_item, customerLabels);
+    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
     customerSpinner.setAdapter(adapter);
     layout.addView(customerSpinner);
 
@@ -599,184 +613,177 @@ private void showSalesDocument(boolean invoice) {
     customerDetails.setTextSize(15);
     customerDetails.setTextColor(Color.DKGRAY);
     layout.addView(customerDetails);
-
-    customerSpinner.setOnItemSelectedListener(
-        new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(
-                    android.widget.AdapterView<?> parent,
-                    View view, int position, long id) {
-                if (position > 0) {
-                    JSONObject c = customers.optJSONObject(position - 1);
-                    if (c != null) {
-                        customerDetails.setText(
-                            "الاسم: " + c.optString("name")
-                            + "\nالجوال: " + c.optString("phone")
-                            + "\nالعنوان الوطني: "
-                            + c.optString("nationalAddress")
-                            + "\nالرقم الضريبي: "
-                            + c.optString("taxNumber")
-                            + "\nالمعرّف الآخر: "
-                            + c.optString("identifierType") + " "
-                            + c.optString("identifierValue"));
-                    }
-                } else {
-                    customerDetails.setText("");
-                }
-            }
-
-            @Override
-            public void onNothingSelected(
-                    android.widget.AdapterView<?> parent) {}
-        });
-
+    customerSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+        public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+            JSONObject c = position > 0 ? customers.optJSONObject(position - 1) : null;
+            if (c == null) { customerDetails.setText(""); return; }
+            customerDetails.setText("الاسم: " + c.optString("name")
+                + "\nالجوال: " + c.optString("phone")
+                + "\nالعنوان الوطني: " + c.optString("nationalAddress")
+                + "\nرقم المبنى: " + c.optString("buildingNumber")
+                + "\nالحي: " + c.optString("district")
+                + "\nالمدينة: " + c.optString("city")
+                + "\nالرمز البريدي: " + c.optString("postalCode")
+                + "\nالرقم الإضافي: " + c.optString("additionalNumber")
+                + "\nالرقم الضريبي: " + c.optString("taxNumber")
+                + "\n" + c.optString("identifierType") + ": " + c.optString("identifierValue"));
+        }
+        public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+    });
     addButton("إضافة عميل جديد", this::showCustomers);
 
     JSONArray items = readArray("items");
-    java.util.ArrayList<String> itemLabels =
-        new java.util.ArrayList<>();
+    java.util.ArrayList<String> itemLabels = new java.util.ArrayList<>();
     itemLabels.add("اختر الصنف");
-
     for (int i = 0; i < items.length(); i++) {
         JSONObject item = items.optJSONObject(i);
-        if (item != null) {
-            itemLabels.add(item.optString("number") + " - "
-                + item.optString("name"));
-        }
+        if (item != null) itemLabels.add(item.optString("number") + " - " + item.optString("name"));
     }
 
-    Spinner itemSpinner = new Spinner(this);
-    ArrayAdapter<String> itemAdapter = new ArrayAdapter<>(
-        this, android.R.layout.simple_spinner_item, itemLabels);
-    itemAdapter.setDropDownViewResource(
-        android.R.layout.simple_spinner_dropdown_item);
-    itemSpinner.setAdapter(itemAdapter);
-    layout.addView(itemSpinner);
-
-    EditText quantityInput = addNumberInput("الكمية");
+    LinearLayout rowsContainer = new LinearLayout(this);
+    rowsContainer.setOrientation(LinearLayout.VERTICAL);
+    layout.addView(rowsContainer);
+    final java.util.ArrayList<Spinner> itemSpinners = new java.util.ArrayList<>();
+    final java.util.ArrayList<EditText> quantities = new java.util.ArrayList<>();
+    final java.util.ArrayList<CheckBox> taxChecks = new java.util.ArrayList<>();
     TextView totals = new TextView(this);
     totals.setTextSize(17);
     totals.setTextColor(blue);
     layout.addView(totals);
 
-    final double[] sale = {0};
-    final double[] taxRate = {0.15};
-
     Runnable calculate = () -> {
-        try {
-            int pos = itemSpinner.getSelectedItemPosition();
-            double qty = Double.parseDouble(
-                quantityInput.getText().toString());
-            JSONObject item = items.optJSONObject(pos - 1);
-            if (pos <= 0 || item == null || qty <= 0) {
-                totals.setText("اختر صنفًا وأدخل كمية صحيحة");
-                return;
-            }
-            sale[0] = item.optDouble("sale") * qty;
-            taxRate[0] = item.optBoolean("taxEnabled", true)
-                ? item.optDouble("taxRate", 0.15) : 0;
-            double tax = sale[0] * taxRate[0];
-            totals.setText(
-                "الإجمالي قبل الضريبة: " + money(sale[0])
-                + " ريال\nالضريبة: " + money(tax)
-                + " ريال\nالإجمالي شامل الضريبة: "
-                + money(sale[0] + tax) + " ريال");
-        } catch (Exception e) {
-            totals.setText("اختر صنفًا وأدخل الكمية");
+        double subtotal = 0, tax = 0;
+        for (int i = 0; i < itemSpinners.size(); i++) {
+            int pos = itemSpinners.get(i).getSelectedItemPosition();
+            JSONObject item = pos > 0 ? items.optJSONObject(pos - 1) : null;
+            try {
+                double qty = Double.parseDouble(quantities.get(i).getText().toString().trim());
+                if (item != null && qty > 0) {
+                    double line = item.optDouble("sale") * qty;
+                    subtotal += line;
+                    if (taxChecks.get(i).isChecked() && item.optBoolean("taxEnabled", true)) tax += line * TAX_RATE;
+                }
+            } catch (Exception ignored) {}
         }
+        totals.setText("الإجمالي قبل الضريبة: " + money(subtotal)
+            + " ريال\nالضريبة: " + money(tax) + " ريال\nالإجمالي شامل الضريبة: " + money(subtotal + tax) + " ريال");
     };
 
-    itemSpinner.setOnItemSelectedListener(
-        new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(
-                    android.widget.AdapterView<?> p,
-                    View v, int position, long id) {
-                calculate.run();
-            }
-
-            @Override
-            public void onNothingSelected(
-                    android.widget.AdapterView<?> p) {}
+    Runnable addItemRow = () -> {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, 8, 0, 8);
+        Spinner itemSpinner = new Spinner(this);
+        ArrayAdapter<String> itemAdapter = new ArrayAdapter<>(this,
+            android.R.layout.simple_spinner_item, itemLabels);
+        itemAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        itemSpinner.setAdapter(itemAdapter);
+        row.addView(itemSpinner);
+        EditText qty = addNumberInputTo(row, "الكمية");
+        CheckBox taxCheck = new CheckBox(this);
+        taxCheck.setText("تطبيق الضريبة 15% على هذا الصنف");
+        taxCheck.setChecked(true);
+        row.addView(taxCheck);
+        Button remove = new Button(this);
+        remove.setText("حذف الصنف من المستند");
+        row.addView(remove);
+        rowsContainer.addView(row);
+        itemSpinners.add(itemSpinner);
+        quantities.add(qty);
+        taxChecks.add(taxCheck);
+        itemSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(android.widget.AdapterView<?> p, View v, int position, long id) { calculate.run(); }
+            public void onNothingSelected(android.widget.AdapterView<?> p) {}
         });
-
-    quantityInput.addTextChangedListener(new android.text.TextWatcher() {
-        public void beforeTextChanged(
-            CharSequence s, int start, int count, int after) {}
-        public void onTextChanged(
-            CharSequence s, int start, int before, int count) {
+        qty.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int st, int count, int after) {}
+            public void onTextChanged(CharSequence s, int st, int before, int count) { calculate.run(); }
+            public void afterTextChanged(android.text.Editable e) {}
+        });
+        taxCheck.setOnCheckedChangeListener((b, checked) -> calculate.run());
+        remove.setOnClickListener(v -> {
+            rowsContainer.removeView(row);
+            itemSpinners.remove(itemSpinner);
+            quantities.remove(qty);
+            taxChecks.remove(taxCheck);
             calculate.run();
-        }
-        public void afterTextChanged(android.text.Editable e) {}
-    });
+        });
+    };
 
+    addButton("إضافة صنف للمستند", addItemRow);
+    addItemRow.run();
     EditText notes = addInput("ملاحظات (اختياري)");
 
     addButton("حفظ المستند", () -> {
         int customerPos = customerSpinner.getSelectedItemPosition();
-        int itemPos = itemSpinner.getSelectedItemPosition();
-
-        if (customerPos <= 0 || itemPos <= 0) {
-            toast("اختر العميل والصنف");
-            return;
-        }
-
-        double qty;
-        try {
-            qty = Double.parseDouble(
-                quantityInput.getText().toString().trim());
-            if (qty <= 0) {
-                toast("أدخل كمية أكبر من صفر");
-                return;
-            }
-        } catch (Exception e) {
-            toast("تحقق من الكمية");
-            return;
-        }
-
+        if (customerPos <= 0) { toast("اختر العميل"); return; }
         JSONObject c = customers.optJSONObject(customerPos - 1);
-        JSONObject item = items.optJSONObject(itemPos - 1);
-        if (c == null || item == null) {
-            toast("تعذر قراءة بيانات العميل أو الصنف");
-            return;
-        }
+        if (c == null) { toast("تعذر قراءة بيانات العميل"); return; }
 
-        double subtotal = item.optDouble("sale") * qty;
-        double tax = subtotal * (item.optBoolean("taxEnabled", true)
-            ? item.optDouble("taxRate", 0.15) : 0);
-        double total = subtotal + tax;
+        JSONArray lines = new JSONArray();
+        double subtotal = 0, tax = 0;
+        for (int i = 0; i < itemSpinners.size(); i++) {
+            int pos = itemSpinners.get(i).getSelectedItemPosition();
+            JSONObject item = pos > 0 ? items.optJSONObject(pos - 1) : null;
+            if (item == null) continue;
+            double qty;
+            try { qty = Double.parseDouble(quantities.get(i).getText().toString().trim()); }
+            catch (Exception e) { toast("أدخل كمية صحيحة لكل صنف"); return; }
+            if (qty <= 0) { toast("يجب أن تكون الكمية أكبر من صفر"); return; }
+            double lineSubtotal = item.optDouble("sale") * qty;
+            boolean applyTax = taxChecks.get(i).isChecked() && item.optBoolean("taxEnabled", true);
+            double lineTax = applyTax ? lineSubtotal * TAX_RATE : 0;
+            JSONObject line = new JSONObject();
+            try {
+                line.put("item", item);
+                line.put("quantity", qty);
+                line.put("subtotal", lineSubtotal);
+                line.put("tax", lineTax);
+                line.put("total", lineSubtotal + lineTax);
+                line.put("taxEnabled", applyTax);
+                lines.put(line);
+            } catch (Exception ignored) {}
+            subtotal += lineSubtotal;
+            tax += lineTax;
+        }
+        if (lines.length() == 0) { toast("أضف صنفًا واحدًا على الأقل"); return; }
 
         String key = invoice ? "sales_invoices" : "sales_quotes";
         JSONArray documents = readArray(key);
         String prefix = invoice ? "INV-" : "QUO-";
-        String number = prefix + String.format(
-            Locale.US, "%06d", documents.length() + 1);
-
+        String number = prefix + String.format(Locale.US, "%06d", documents.length() + 1);
         try {
             JSONObject doc = new JSONObject();
             doc.put("number", number);
-            doc.put("date", new java.text.SimpleDateFormat(
-                "yyyy-MM-dd", Locale.US).format(new java.util.Date()));
+            doc.put("date", new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new java.util.Date()));
             doc.put("customer", c);
-            doc.put("item", item);
-            doc.put("quantity", qty);
+            doc.put("lines", lines);
+            // حقول توافقية للمستندات القديمة وأي بحث يعتمد عليها
+            doc.put("item", lines.optJSONObject(0).optJSONObject("item"));
+            doc.put("quantity", lines.optJSONObject(0).optDouble("quantity"));
             doc.put("subtotal", subtotal);
             doc.put("tax", tax);
-            doc.put("total", total);
+            doc.put("total", subtotal + tax);
             doc.put("notes", notes.getText().toString().trim());
             doc.put("paid", 0);
             doc.put("type", invoice ? "invoice" : "quote");
-
             documents.put(doc);
             saveArray(key, documents);
             toast("تم حفظ المستند رقم " + number);
             showSalesPreview(doc, invoice);
-        } catch (Exception e) {
-            toast("تعذر حفظ المستند");
-        }
+        } catch (Exception e) { toast("تعذر حفظ المستند"); }
     });
-
     addButton("العودة لإدارة المبيعات", this::showSales);
+}
+
+private EditText addNumberInputTo(LinearLayout parent, String hint) {
+    EditText input = new EditText(this);
+    input.setHint(hint);
+    input.setTextSize(16);
+    input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+    parent.addView(input, new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+    return input;
 }
 
 private void showSalesSearch(boolean invoice) {
@@ -842,13 +849,16 @@ private void showSalesSearch(boolean invoice) {
 private void showSalesPreview(JSONObject doc, boolean invoice) {
     setupLayout();
     addTitle(invoice ? "فاتورة مبيعات" : "عرض سعر");
-
     JSONObject c = doc.optJSONObject("customer");
-    JSONObject item = doc.optJSONObject("item");
-
+    JSONArray lines = doc.optJSONArray("lines");
     addText(prefs.getString("company_name", "مركز نوره للصيانة")
-        + "\nالعنوان: " + prefs.getString("company_address", "")
+        + "\nالعنوان الوطني: " + prefs.getString("company_address", "")
+        + "\nرقم المبنى: " + prefs.getString("company_building_number", "")
+        + "\nالرمز البريدي: " + prefs.getString("company_postal_code", "")
+        + "\nالرقم الإضافي: " + prefs.getString("company_additional_number", "")
         + "\nالرقم الضريبي: " + prefs.getString("company_tax", "")
+        + "\n" + prefs.getString("company_other_id_type", "المعرّف الآخر")
+        + ": " + prefs.getString("company_other_id", "")
         + "\nرقم المستند: " + doc.optString("number")
         + "\nالتاريخ: " + doc.optString("date"));
 
@@ -856,65 +866,118 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
         addText("بيانات العميل\nالاسم: " + c.optString("name")
             + "\nالجوال: " + c.optString("phone")
             + "\nالعنوان الوطني: " + c.optString("nationalAddress")
+            + "\nرقم المبنى: " + c.optString("buildingNumber")
+            + "\nالحي: " + c.optString("district")
+            + "\nالمدينة: " + c.optString("city")
+            + "\nالرمز البريدي: " + c.optString("postalCode")
+            + "\nالرقم الإضافي: " + c.optString("additionalNumber")
             + "\nالرقم الضريبي: " + c.optString("taxNumber")
-            + "\nالمعرّف الآخر: " + c.optString("identifierType")
-            + " " + c.optString("identifierValue"));
+            + "\n" + c.optString("identifierType") + ": " + c.optString("identifierValue"));
     }
 
-    if (item != null) {
-        addText("الصنف: " + item.optString("name")
-            + "\nرقم الصنف: " + item.optString("number")
+    if (lines != null) {
+        for (int i = 0; i < lines.length(); i++) {
+            JSONObject line = lines.optJSONObject(i);
+            if (line == null) continue;
+            JSONObject item = line.optJSONObject("item");
+            if (item == null) continue;
+            addText((i + 1) + ". " + item.optString("name")
+                + " (" + item.optString("number") + ")"
+                + "\nالكمية: " + money(line.optDouble("quantity"))
+                + "\nسعر الوحدة قبل الضريبة: " + money(item.optDouble("sale"))
+                + "\nالإجمالي قبل الضريبة: " + money(line.optDouble("subtotal"))
+                + "\nالضريبة: " + money(line.optDouble("tax"))
+                + "\nإجمالي الصنف: " + money(line.optDouble("total")) + " ريال");
+        }
+    } else {
+        // دعم عرض وطباعة المستندات التي أُنشئت بالنسخة السابقة
+        JSONObject item = doc.optJSONObject("item");
+        if (item != null) addText("الصنف: " + item.optString("name")
             + "\nالكمية: " + money(doc.optDouble("quantity"))
-            + "\nسعر الوحدة: " + money(item.optDouble("sale"))
-            + "\nالإجمالي قبل الضريبة: "
-            + money(doc.optDouble("subtotal"))
-            + "\nالضريبة: " + money(doc.optDouble("tax"))
-            + "\nالإجمالي: " + money(doc.optDouble("total")) + " ريال");
+            + "\nالإجمالي قبل الضريبة: " + money(doc.optDouble("subtotal"))
+            + "\nالضريبة: " + money(doc.optDouble("tax")));
     }
-
-    addText("ملاحظات: " + doc.optString("notes"));
+    addText("الإجمالي قبل الضريبة: " + money(doc.optDouble("subtotal"))
+        + "\nإجمالي الضريبة: " + money(doc.optDouble("tax"))
+        + "\nالإجمالي النهائي: " + money(doc.optDouble("total")) + " ريال"
+        + "\nملاحظات: " + doc.optString("notes"));
 
     addButton("طباعة / معاينة الطباعة", () -> {
         android.webkit.WebView webView = new android.webkit.WebView(this);
-        String html = "<html><meta charset='UTF-8'><body dir='rtl' "
-            + "style='font-family:sans-serif;padding:20px'>"
-            + "<h2>" + (invoice ? "فاتورة مبيعات" : "عرض سعر") + "</h2>"
-            + "<h3>" + prefs.getString("company_name", "مركز نوره للصيانة")
-            + "</h3><p>رقم المستند: " + doc.optString("number")
-            + "</p><p>التاريخ: " + doc.optString("date")
-            + "</p><p>العميل: " + (c == null ? "" : c.optString("name"))
-            + "</p><p>الجوال: " + (c == null ? "" : c.optString("phone"))
-            + "</p><p>العنوان الوطني: "
-            + (c == null ? "" : c.optString("nationalAddress"))
-            + "</p><p>الصنف: " + (item == null ? "" : item.optString("name"))
-            + "</p><p>الكمية: " + doc.optDouble("quantity")
-            + "</p><p>الإجمالي قبل الضريبة: " + money(doc.optDouble("subtotal"))
-            + "</p><p>الضريبة: " + money(doc.optDouble("tax"))
-            + "</p><h3>الإجمالي: " + money(doc.optDouble("total"))
-            + " ريال</h3><p>ملاحظات: " + doc.optString("notes")
-            + "</p></body></html>";
+        StringBuilder html = new StringBuilder();
+        html.append("<html><meta charset='UTF-8'><body dir='rtl' style='font-family:sans-serif;padding:24px'>")
+            .append("<h2>").append(invoice ? "فاتورة مبيعات" : "عرض سعر").append("</h2>")
+            .append("<h3>").append(escapeHtml(prefs.getString("company_name", "مركز نوره للصيانة"))).append("</h3>")
+            .append("<p>العنوان الوطني: ").append(escapeHtml(prefs.getString("company_address", "")))
+            .append("<br>رقم المبنى: ").append(escapeHtml(prefs.getString("company_building_number", "")))
+            .append("<br>الرمز البريدي: ").append(escapeHtml(prefs.getString("company_postal_code", "")))
+            .append("<br>الرقم الإضافي: ").append(escapeHtml(prefs.getString("company_additional_number", "")))
+            .append("<br>الرقم الضريبي: ").append(escapeHtml(prefs.getString("company_tax", "")))
+            .append("<br>").append(escapeHtml(prefs.getString("company_other_id_type", "المعرّف الآخر")))
+            .append(": ").append(escapeHtml(prefs.getString("company_other_id", ""))).append("</p>")
+            .append("<p>رقم المستند: ").append(escapeHtml(doc.optString("number")))
+            .append("<br>التاريخ: ").append(escapeHtml(doc.optString("date"))).append("</p>");
+        if (c != null) {
+            html.append("<h3>بيانات العميل</h3><p>الاسم: ").append(escapeHtml(c.optString("name")))
+                .append("<br>الجوال: ").append(escapeHtml(c.optString("phone")))
+                .append("<br>العنوان الوطني: ").append(escapeHtml(c.optString("nationalAddress")))
+                .append("<br>رقم المبنى: ").append(escapeHtml(c.optString("buildingNumber")))
+                .append("<br>الحي: ").append(escapeHtml(c.optString("district")))
+                .append("<br>المدينة: ").append(escapeHtml(c.optString("city")))
+                .append("<br>الرمز البريدي: ").append(escapeHtml(c.optString("postalCode")))
+                .append("<br>الرقم الإضافي: ").append(escapeHtml(c.optString("additionalNumber")))
+                .append("<br>الرقم الضريبي: ").append(escapeHtml(c.optString("taxNumber")))
+                .append("<br>").append(escapeHtml(c.optString("identifierType")))
+                .append(": ").append(escapeHtml(c.optString("identifierValue"))).append("</p>");
+        }
+        html.append("<table style='width:100%;border-collapse:collapse' border='1' cellpadding='8'><tr><th>م</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>قبل الضريبة</th><th>الضريبة</th><th>الإجمالي</th></tr>");
+        if (lines != null) {
+            for (int i = 0; i < lines.length(); i++) {
+                JSONObject line = lines.optJSONObject(i);
+                if (line == null) continue;
+                JSONObject item = line.optJSONObject("item");
+                if (item == null) continue;
+                html.append("<tr><td>").append(i + 1).append("</td><td>")
+                    .append(escapeHtml(item.optString("name"))).append("</td><td>")
+                    .append(money(line.optDouble("quantity"))).append("</td><td>")
+                    .append(money(item.optDouble("sale"))).append("</td><td>")
+                    .append(money(line.optDouble("subtotal"))).append("</td><td>")
+                    .append(money(line.optDouble("tax"))).append("</td><td>")
+                    .append(money(line.optDouble("total"))).append("</td></tr>");
+            }
+        } else {
+            JSONObject item = doc.optJSONObject("item");
+            if (item != null) html.append("<tr><td>1</td><td>")
+                .append(escapeHtml(item.optString("name"))).append("</td><td>")
+                .append(money(doc.optDouble("quantity"))).append("</td><td>")
+                .append(money(item.optDouble("sale"))).append("</td><td>")
+                .append(money(doc.optDouble("subtotal"))).append("</td><td>")
+                .append(money(doc.optDouble("tax"))).append("</td><td>")
+                .append(money(doc.optDouble("total"))).append("</td></tr>");
+        }
+        html.append("</table><h3>الإجمالي قبل الضريبة: ").append(money(doc.optDouble("subtotal")))
+            .append(" ريال</h3><h3>الضريبة: ").append(money(doc.optDouble("tax")))
+            .append(" ريال</h3><h2>الإجمالي النهائي: ").append(money(doc.optDouble("total")))
+            .append(" ريال</h2><p>ملاحظات: ").append(escapeHtml(doc.optString("notes"))).append("</p></body></html>");
 
-        webView.loadDataWithBaseURL(
-            null, html, "text/html", "UTF-8", null);
-
+        webView.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
         webView.setWebViewClient(new android.webkit.WebViewClient() {
-            @Override
-            public void onPageFinished(android.webkit.WebView view,
-                                       String url) {
-                android.print.PrintManager printManager =
-                    (android.print.PrintManager) getSystemService(
-                        PRINT_SERVICE);
-                android.print.PrintDocumentAdapter adapter =
-                    view.createPrintDocumentAdapter(
-                        invoice ? "فاتورة مبيعات" : "عرض سعر");
-                printManager.print(
-                    doc.optString("number"), adapter,
+            @Override public void onPageFinished(android.webkit.WebView view, String url) {
+                android.print.PrintManager printManager = (android.print.PrintManager) getSystemService(PRINT_SERVICE);
+                android.print.PrintDocumentAdapter printAdapter = view.createPrintDocumentAdapter(
+                    invoice ? "فاتورة مبيعات" : "عرض سعر");
+                printManager.print(doc.optString("number"), printAdapter,
                     new android.print.PrintAttributes.Builder().build());
             }
         });
     });
-
     addButton("العودة لإدارة المبيعات", this::showSales);
+}
+
+private String escapeHtml(String value) {
+    if (value == null) return "";
+    return value.replace("&", "&amp;").replace("<", "&lt;")
+        .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
 }
 
     private String money(double value) {
