@@ -842,6 +842,7 @@ private void showSalesDocument(boolean invoice) {
             }).show();
     });
     addItemRow.run();
+    EditText discountInput = addNumberInput("الخصم بالريال (اختياري)");
     EditText notes = addInput("ملاحظات (اختياري)");
 
     addButton("حفظ المستند", () -> {
@@ -877,11 +878,32 @@ private void showSalesDocument(boolean invoice) {
             tax += lineTax;
         }
         if (lines.length() == 0) { toast("أضف صنفًا واحدًا على الأقل"); return; }
+        double discount = 0;
+        try {
+            String discountText = discountInput.getText().toString().trim();
+            if (!discountText.isEmpty()) discount = Double.parseDouble(discountText);
+        } catch (Exception ex) { toast("تحقق من مبلغ الخصم"); return; }
+        if (discount < 0 || discount > subtotal) { toast("الخصم يجب أن يكون بين صفر وإجمالي الأصناف"); return; }
+        double taxableBase = subtotal - discount;
+        // توزيع الخصم تناسبيًا على الأصناف لحساب ضريبة القيمة المضافة بعد الخصم.
+        tax = subtotal > 0 ? tax * (taxableBase / subtotal) : 0;
 
         String key = invoice ? "sales_invoices" : "sales_quotes";
         JSONArray documents = readArray(key);
         String prefix = invoice ? "INV-" : "QUO-";
-        String number = prefix + String.format(Locale.US, "%06d", documents.length() + 1);
+        int nextSequence = 1;
+        for (int ni = 0; ni < documents.length(); ni++) {
+            JSONObject oldDoc = documents.optJSONObject(ni);
+            if (oldDoc == null) continue;
+            String oldNumber = oldDoc.optString("number", "");
+            if (oldNumber.startsWith(prefix)) {
+                try {
+                    int oldSequence = Integer.parseInt(oldNumber.substring(prefix.length()));
+                    if (oldSequence >= nextSequence) nextSequence = oldSequence + 1;
+                } catch (Exception ignored) {}
+            }
+        }
+        String number = prefix + String.format(Locale.US, "%06d", nextSequence);
         try {
             JSONObject doc = new JSONObject();
             doc.put("number", number);
@@ -892,8 +914,9 @@ private void showSalesDocument(boolean invoice) {
             doc.put("item", lines.optJSONObject(0).optJSONObject("item"));
             doc.put("quantity", lines.optJSONObject(0).optDouble("quantity"));
             doc.put("subtotal", subtotal);
+            doc.put("discount", discount);
             doc.put("tax", tax);
-            doc.put("total", subtotal + tax);
+            doc.put("total", taxableBase + tax);
             doc.put("notes", notes.getText().toString().trim());
             doc.put("paid", 0);
             doc.put("type", invoice ? "invoice" : "quote");
@@ -1035,20 +1058,19 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
     addButton("طباعة / معاينة الطباعة", () -> {
         android.webkit.WebView webView = new android.webkit.WebView(this);
         StringBuilder html = new StringBuilder();
-        html.append("<html><meta charset='UTF-8'><body dir='rtl' style='font-family:Arial,sans-serif;padding:28px;color:#273446;background:#fff'>")
-            .append("<div style='border-radius:14px;background:#182c4c;color:#fff;padding:20px;text-align:center'><h1 style='margin:0'>").append(invoice ? "فاتورة مبيعات" : "عرض سعر").append("</h1><p style='margin:8px 0 0'>مركز نوره للصيانة</p></div>")
-            .append("<h3>").append(escapeHtml(prefs.getString("company_name", "مركز نوره للصيانة"))).append("</h3>")
-            .append("<p>العنوان الوطني: ").append(escapeHtml(prefs.getString("company_address", "")))
+        html.append("<html><meta charset='UTF-8'><body dir='rtl' style='font-family:Arial,sans-serif;padding:24px;color:#273446;background:#fff'>")
+            .append("<div style='border-radius:14px;background:#182c4c;color:#fff;padding:18px;text-align:center'>")
+            .append(companyLogoHtml()).append("<h1 style='margin:6px 0'>").append(escapeHtml(prefs.getString("company_name", "مركز نوره للصيانة"))).append("</h1><div style='font-size:22px;color:#7ce3d7;font-weight:bold'>")
+            .append(invoice ? "فاتورة مبيعات" : "عرض سعر").append("</div><p>رقم المستند: ").append(escapeHtml(doc.optString("number"))).append("　 |　 التاريخ: ").append(escapeHtml(doc.optString("date"))).append("</p></div>")
+            .append("<div style='display:flex;gap:12px;margin-top:16px;align-items:stretch'><div style='width:50%;box-sizing:border-box;border:1px solid #9aa9bb;border-radius:10px;padding:12px'><h3 style='margin-top:0;color:#182c4c;border-bottom:2px solid #009688;padding-bottom:8px'>بيانات المنشأة</h3><b>").append(escapeHtml(prefs.getString("company_name", "مركز نوره للصيانة"))).append("</b><p>العنوان الوطني: ").append(escapeHtml(prefs.getString("company_address", "")))
             .append("<br>رقم المبنى: ").append(escapeHtml(prefs.getString("company_building_number", "")))
             .append("<br>الرمز البريدي: ").append(escapeHtml(prefs.getString("company_postal_code", "")))
             .append("<br>الرقم الإضافي: ").append(escapeHtml(prefs.getString("company_additional_number", "")))
             .append("<br>الرقم الضريبي: ").append(escapeHtml(prefs.getString("company_tax", "")))
             .append("<br>").append(escapeHtml(prefs.getString("company_other_id_type", "المعرّف الآخر")))
-            .append(": ").append(escapeHtml(prefs.getString("company_other_id", ""))).append("</p>")
-            .append("<p>رقم المستند: ").append(escapeHtml(doc.optString("number")))
-            .append("<br>التاريخ: ").append(escapeHtml(doc.optString("date"))).append("</p>");
+            .append(": ").append(escapeHtml(prefs.getString("company_other_id", ""))).append("</p></div>");
         if (c != null) {
-            html.append("<h3>بيانات العميل</h3><p>الاسم: ").append(escapeHtml(c.optString("name")))
+            html.append("<div style='width:50%;box-sizing:border-box;border:1px solid #9aa9bb;border-radius:10px;padding:12px'><h3 style='margin-top:0;color:#182c4c;border-bottom:2px solid #009688;padding-bottom:8px'>بيانات العميل</h3><b>الاسم: ").append(escapeHtml(c.optString("name")))
                 .append("<br>الجوال: ").append(escapeHtml(c.optString("phone")))
                 .append("<br>العنوان الوطني: ").append(escapeHtml(c.optString("nationalAddress")))
                 .append("<br>رقم المبنى: ").append(escapeHtml(c.optString("buildingNumber")))
@@ -1058,9 +1080,9 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
                 .append("<br>الرقم الإضافي: ").append(escapeHtml(c.optString("additionalNumber")))
                 .append("<br>الرقم الضريبي: ").append(escapeHtml(c.optString("taxNumber")))
                 .append("<br>").append(escapeHtml(c.optString("identifierType")))
-                .append(": ").append(escapeHtml(c.optString("identifierValue"))).append("</p>");
-        }
-        html.append("<table style='width:100%;margin-top:18px;border-collapse:collapse;border:1px solid #dbe3ed' cellpadding='9'><tr style='background:#009688;color:#fff'><th>م</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>قبل الضريبة</th><th>الضريبة</th><th>الإجمالي</th></tr>");
+                .append(": ").append(escapeHtml(c.optString("identifierValue"))).append("</p></div>");
+        } else { html.append("<div style='width:50%;border:1px solid #9aa9bb;border-radius:10px;padding:12px'>بيانات العميل غير محددة</div>"); }
+        html.append("</div><table style='width:100%;margin-top:18px;border-collapse:collapse;border:1px solid #dbe3ed' cellpadding='9'><tr style='background:#009688;color:#fff'><th>م</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>قبل الضريبة</th><th>الضريبة</th><th>الإجمالي</th></tr>");
         if (lines != null) {
             for (int i = 0; i < lines.length(); i++) {
                 JSONObject line = lines.optJSONObject(i);
@@ -1085,10 +1107,8 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
                 .append(money(doc.optDouble("tax"))).append("</td><td>")
                 .append(money(doc.optDouble("total"))).append("</td></tr>");
         }
-        html.append("</table><div style='margin-top:18px;background:#f4f7fb;border-radius:12px;padding:16px'><h3>الإجمالي قبل الضريبة: ").append(money(doc.optDouble("subtotal")))
-            .append(" ريال</h3><h3>الضريبة: ").append(money(doc.optDouble("tax")))
-            .append(" ريال</h3><h2 style='color:#009688'>الإجمالي النهائي: ").append(money(doc.optDouble("total")))
-            .append(" ريال</h2></div><p>ملاحظات: ").append(escapeHtml(doc.optString("notes"))).append("</p><hr><p style='text-align:center;color:#68778a'>شكرًا لثقتكم بمركز نوره للصيانة</p></body></html>");
+        html.append("</table><div style='margin:18px 0 0 auto;width:340px;max-width:100%;border:1px solid #cbd5e1;border-radius:12px;padding:14px;background:#f4f7fb'><div style='display:flex;justify-content:space-between;padding:6px'><span>الإجمالي قبل الضريبة</span><b>").append(money(doc.optDouble("subtotal"))).append(" ريال</b></div><div style='display:flex;justify-content:space-between;padding:6px'><span>الخصم</span><b>").append(money(doc.optDouble("discount"))).append(" ريال</b></div><div style='display:flex;justify-content:space-between;padding:6px'><span>مبلغ الضريبة</span><b>").append(money(doc.optDouble("tax"))).append(" ريال</b></div><div style='display:flex;justify-content:space-between;border-top:2px solid #009688;margin-top:8px;padding:12px 6px;color:#009688;font-size:20px'><strong>الصافي المستحق</strong><strong>").append(money(doc.optDouble("total")))
+            .append(" ريال</strong></div></div><p>ملاحظات: ").append(escapeHtml(doc.optString("notes"))).append("</p><hr><p style='text-align:center;color:#68778a'>شكرًا لثقتكم بمركز نوره للصيانة</p></body></html>");
 
         webView.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
         webView.setWebViewClient(new android.webkit.WebViewClient() {
@@ -1102,6 +1122,21 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
         });
     });
     addButton("العودة لإدارة المبيعات", this::showSales);
+}
+
+private String companyLogoHtml() {
+    try {
+        String path = prefs.getString("company_logo_path", "");
+        if (path == null || path.isEmpty()) return "";
+        File f = new File(path);
+        if (!f.exists()) return "";
+        Bitmap bitmap = BitmapFactory.decodeFile(path);
+        if (bitmap == null) return "";
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+        String base64 = android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP);
+        return "<img alt='شعار المنشأة' style='max-width:100px;max-height:70px;object-fit:contain' src='data:image/png;base64," + base64 + "'/>";
+    } catch (Exception e) { return ""; }
 }
 
 private String escapeHtml(String value) {
