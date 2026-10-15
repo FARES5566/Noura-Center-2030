@@ -165,11 +165,56 @@ public class MainActivity extends Activity {
 private void showHome() {
     setupLayout();
     addTitle("مركز نوره للصيانة");
+    TextView menuTitle = new TextView(this);
+    menuTitle.setText("القائمة الرئيسية");
+    menuTitle.setTextSize(18);
+    menuTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+    menuTitle.setTextColor(blue);
+    menuTitle.setGravity(Gravity.RIGHT);
+    menuTitle.setPadding(0, 4, 8, 12);
+    layout.addView(menuTitle);
 
-    addButton("بيانات المنشأة", this::showCompanyData);
-    addButton("إدارة العملاء", this::showCustomers);
-    addButton("كرت الأصناف", this::showItems);
-    addButton("إدارة المبيعات", this::showSales);
+    addMenuGroup("⚙  بيانات المنشأة", new String[]{"بيانات المنشأة", "العودة للرئيسية"}, new Runnable[]{this::showCompanyData, this::showHome});
+    addMenuGroup("👥  إدارة العملاء", new String[]{"إضافة / عرض العملاء"}, new Runnable[]{this::showCustomers});
+    addMenuGroup("📦  كرت الأصناف", new String[]{"إضافة / عرض الأصناف"}, new Runnable[]{this::showItems});
+    addMenuGroup("🧾  إدارة المبيعات", new String[]{"عروض الأسعار", "فواتير المبيعات", "البحث عن عرض سعر", "البحث عن فاتورة"}, new Runnable[]{() -> showSalesDocument(false), () -> showSalesDocument(true), () -> showSalesSearch(false), () -> showSalesSearch(true)});
+    addText("اختر القسم من القائمة لعرض الخيارات الفرعية أسفله.");
+}
+
+private void addMenuGroup(String title, String[] labels, Runnable[] actions) {
+    LinearLayout group = new LinearLayout(this);
+    group.setOrientation(LinearLayout.VERTICAL);
+    group.setPadding(10, 8, 10, 8);
+    group.setBackground(roundedBackground(Color.WHITE, 16));
+    LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+    gp.setMargins(0, 5, 0, 8);
+    layout.addView(group, gp);
+    Button header = new Button(this);
+    header.setText(title + "   ▾");
+    header.setTextSize(16);
+    header.setAllCaps(false);
+    header.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+    header.setTextColor(Color.WHITE);
+    header.setBackground(roundedBackground(blue, 13));
+    group.addView(header, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+    LinearLayout submenu = new LinearLayout(this);
+    submenu.setOrientation(LinearLayout.VERTICAL);
+    submenu.setVisibility(View.GONE);
+    group.addView(submenu);
+    for (int i = 0; i < labels.length; i++) {
+        final Runnable action = actions[i];
+        Button sub = new Button(this);
+        sub.setText("›  " + labels[i]);
+        sub.setAllCaps(false);
+        sub.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        sub.setTextColor(textColor);
+        sub.setBackground(roundedBackground(backgroundColor, 10));
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        sp.setMargins(0, 5, 0, 2);
+        submenu.addView(sub, sp);
+        sub.setOnClickListener(v -> action.run());
+    }
+    header.setOnClickListener(v -> submenu.setVisibility(submenu.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
 }
 
 private void showCompanyData() {
@@ -198,7 +243,8 @@ private void showCompanyData() {
     EditText otherIdType = addInput("نوع المعرّف الآخر (مثل السجل التجاري)");
     otherIdType.setText(prefs.getString("company_other_id_type", ""));
 
-    EditText otherId = addInput("رقم المعرّف الآخر");
+    EditText otherId = addNumberInput("رقم المعرّف الآخر");
+    otherId.setInputType(InputType.TYPE_CLASS_NUMBER);
     otherId.setText(prefs.getString("company_other_id", ""));
 
     TextView logoLabel = new TextView(this);
@@ -355,7 +401,8 @@ private void loadCompanyLogo() {
         EditText identifierType =
             addInput("نوع المعرّف الآخر (سجل تجاري، رقم منشأة...)");
         EditText identifierValue =
-            addInput("رقم المعرّف الآخر (اختياري)");
+            addNumberInput("رقم المعرّف الآخر (اختياري)");
+        identifierValue.setInputType(InputType.TYPE_CLASS_NUMBER);
 
         addButton("حفظ العميل", () -> {
             String n = name.getText().toString().trim();
@@ -696,6 +743,7 @@ private void showSalesDocument(boolean invoice) {
     final java.util.ArrayList<Spinner> itemSpinners = new java.util.ArrayList<>();
     final java.util.ArrayList<EditText> quantities = new java.util.ArrayList<>();
     final java.util.ArrayList<CheckBox> taxChecks = new java.util.ArrayList<>();
+    final java.util.ArrayList<ArrayAdapter<String>> itemAdapters = new java.util.ArrayList<>();
     TextView totals = new TextView(this);
     totals.setTextSize(17);
     totals.setTextColor(blue);
@@ -728,6 +776,7 @@ private void showSalesDocument(boolean invoice) {
             android.R.layout.simple_spinner_item, itemLabels);
         itemAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         itemSpinner.setAdapter(itemAdapter);
+        itemAdapters.add(itemAdapter);
         row.addView(itemSpinner);
         EditText qty = addNumberInputTo(row, "الكمية");
         CheckBox taxCheck = new CheckBox(this);
@@ -754,13 +803,44 @@ private void showSalesDocument(boolean invoice) {
         remove.setOnClickListener(v -> {
             rowsContainer.removeView(row);
             itemSpinners.remove(itemSpinner);
+            itemAdapters.remove(itemAdapter);
             quantities.remove(qty);
             taxChecks.remove(taxCheck);
             calculate.run();
         });
     };
 
-    addButton("إضافة صنف للمستند", addItemRow);
+    addButton("＋ إضافة صنف للمستند", addItemRow);
+    addButton("＋ إنشاء صنف جديد وحفظه في كرت الأصناف وإضافته للمستند", () -> {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(8, 8, 8, 8);
+        EditText numberInput = new EditText(this); numberInput.setHint("رقم الصنف"); form.addView(numberInput);
+        EditText nameInput = new EditText(this); nameInput.setHint("اسم الصنف"); form.addView(nameInput);
+        EditText priceInput = new EditText(this); priceInput.setHint("سعر البيع قبل الضريبة"); priceInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL); form.addView(priceInput);
+        EditText costInput = new EditText(this); costInput.setHint("التكلفة (اختياري)"); costInput.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL); form.addView(costInput);
+        CheckBox taxable = new CheckBox(this); taxable.setText("تطبيق ضريبة 15%"); taxable.setChecked(true); form.addView(taxable);
+        Spinner unit = new Spinner(this); ArrayAdapter<String> ua = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, units); ua.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); unit.setAdapter(ua); form.addView(unit);
+        new android.app.AlertDialog.Builder(this).setTitle("صنف جديد").setView(form)
+            .setNegativeButton("إلغاء", null).setPositiveButton("حفظ وإضافة", (dialog, which) -> {
+                String number = numberInput.getText().toString().trim();
+                String name = nameInput.getText().toString().trim();
+                try {
+                    double salePrice = Double.parseDouble(priceInput.getText().toString().trim());
+                    double cost = costInput.getText().toString().trim().isEmpty() ? 0 : Double.parseDouble(costInput.getText().toString().trim());
+                    if (number.isEmpty() || name.isEmpty() || salePrice < 0 || cost < 0) { toast("أدخل رقم الصنف واسمه وسعرًا صحيحًا"); return; }
+                    for (int k=0;k<items.length();k++) { JSONObject existing=items.optJSONObject(k); if(existing!=null && number.equalsIgnoreCase(existing.optString("number"))) { toast("رقم الصنف مسجل مسبقًا"); return; } }
+                    JSONObject fresh = new JSONObject();
+                    fresh.put("number", number); fresh.put("name", name); fresh.put("unit", unit.getSelectedItem().toString()); fresh.put("sale", salePrice); fresh.put("cost", cost); fresh.put("taxEnabled", taxable.isChecked()); fresh.put("taxRate", taxable.isChecked() ? TAX_RATE : 0); fresh.put("total", taxable.isChecked() ? salePrice * (1 + TAX_RATE) : salePrice);
+                    items.put(fresh); saveArray("items", items);
+                    itemLabels.add(number + " - " + name);
+                    for (ArrayAdapter<String> a : itemAdapters) a.notifyDataSetChanged();
+                    int last = itemLabels.size() - 1;
+                    if (!itemSpinners.isEmpty()) itemSpinners.get(itemSpinners.size()-1).setSelection(last);
+                    toast("تم حفظ الصنف في كرت الأصناف وإضافته للمستند");
+                } catch (Exception ex) { toast("تحقق من سعر البيع والتكلفة"); }
+            }).show();
+    });
     addItemRow.run();
     EditText notes = addInput("ملاحظات (اختياري)");
 
@@ -955,8 +1035,8 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
     addButton("طباعة / معاينة الطباعة", () -> {
         android.webkit.WebView webView = new android.webkit.WebView(this);
         StringBuilder html = new StringBuilder();
-        html.append("<html><meta charset='UTF-8'><body dir='rtl' style='font-family:sans-serif;padding:24px'>")
-            .append("<h2>").append(invoice ? "فاتورة مبيعات" : "عرض سعر").append("</h2>")
+        html.append("<html><meta charset='UTF-8'><body dir='rtl' style='font-family:Arial,sans-serif;padding:28px;color:#273446;background:#fff'>")
+            .append("<div style='border-radius:14px;background:#182c4c;color:#fff;padding:20px;text-align:center'><h1 style='margin:0'>").append(invoice ? "فاتورة مبيعات" : "عرض سعر").append("</h1><p style='margin:8px 0 0'>مركز نوره للصيانة</p></div>")
             .append("<h3>").append(escapeHtml(prefs.getString("company_name", "مركز نوره للصيانة"))).append("</h3>")
             .append("<p>العنوان الوطني: ").append(escapeHtml(prefs.getString("company_address", "")))
             .append("<br>رقم المبنى: ").append(escapeHtml(prefs.getString("company_building_number", "")))
@@ -980,7 +1060,7 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
                 .append("<br>").append(escapeHtml(c.optString("identifierType")))
                 .append(": ").append(escapeHtml(c.optString("identifierValue"))).append("</p>");
         }
-        html.append("<table style='width:100%;border-collapse:collapse' border='1' cellpadding='8'><tr><th>م</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>قبل الضريبة</th><th>الضريبة</th><th>الإجمالي</th></tr>");
+        html.append("<table style='width:100%;margin-top:18px;border-collapse:collapse;border:1px solid #dbe3ed' cellpadding='9'><tr style='background:#009688;color:#fff'><th>م</th><th>الصنف</th><th>الكمية</th><th>سعر الوحدة</th><th>قبل الضريبة</th><th>الضريبة</th><th>الإجمالي</th></tr>");
         if (lines != null) {
             for (int i = 0; i < lines.length(); i++) {
                 JSONObject line = lines.optJSONObject(i);
@@ -1005,10 +1085,10 @@ private void showSalesPreview(JSONObject doc, boolean invoice) {
                 .append(money(doc.optDouble("tax"))).append("</td><td>")
                 .append(money(doc.optDouble("total"))).append("</td></tr>");
         }
-        html.append("</table><h3>الإجمالي قبل الضريبة: ").append(money(doc.optDouble("subtotal")))
+        html.append("</table><div style='margin-top:18px;background:#f4f7fb;border-radius:12px;padding:16px'><h3>الإجمالي قبل الضريبة: ").append(money(doc.optDouble("subtotal")))
             .append(" ريال</h3><h3>الضريبة: ").append(money(doc.optDouble("tax")))
-            .append(" ريال</h3><h2>الإجمالي النهائي: ").append(money(doc.optDouble("total")))
-            .append(" ريال</h2><p>ملاحظات: ").append(escapeHtml(doc.optString("notes"))).append("</p></body></html>");
+            .append(" ريال</h3><h2 style='color:#009688'>الإجمالي النهائي: ").append(money(doc.optDouble("total")))
+            .append(" ريال</h2></div><p>ملاحظات: ").append(escapeHtml(doc.optString("notes"))).append("</p><hr><p style='text-align:center;color:#68778a'>شكرًا لثقتكم بمركز نوره للصيانة</p></body></html>");
 
         webView.loadDataWithBaseURL(null, html.toString(), "text/html", "UTF-8", null);
         webView.setWebViewClient(new android.webkit.WebViewClient() {
