@@ -23,7 +23,12 @@ import java.io.InputStream;
 
 public class MainActivity extends Activity {
 
-    private final int blue = Color.rgb(25, 95, 190);
+    // لوحة ألوان عصرية: كحلي داكن مع تركوازي وخلفية فاتحة
+    private final int blue = Color.rgb(24, 44, 76);       // كحلي
+    private final int teal = Color.rgb(0, 150, 136);      // تركوازي
+    private final int backgroundColor = Color.rgb(244, 247, 251);
+    private final int textColor = Color.rgb(39, 52, 70);
+    private final int mutedColor = Color.rgb(105, 119, 138);
     private LinearLayout layout;
     private SharedPreferences prefs;
     private ImageView logoPreview;
@@ -41,38 +46,78 @@ public class MainActivity extends Activity {
 
     private void setupLayout() {
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
         layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(24, 24, 24, 24);
+        layout.setPadding(20, 22, 20, 26);
         layout.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        layout.setBackgroundColor(Color.rgb(245, 248, 252));
+        layout.setBackgroundColor(backgroundColor);
         layout.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         scroll.addView(layout);
         setContentView(scroll);
     }
+
+    private android.graphics.drawable.GradientDrawable roundedBackground(
+            int color, int radiusDp) {
+        android.graphics.drawable.GradientDrawable shape =
+                new android.graphics.drawable.GradientDrawable();
+        shape.setColor(color);
+        shape.setCornerRadius(radiusDp * getResources().getDisplayMetrics().density);
+        return shape;
+    }
+
     private void addTitle(String text) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setGravity(Gravity.CENTER);
+        header.setPadding(18, 22, 18, 22);
+        header.setBackground(roundedBackground(blue, 22));
+
         TextView title = new TextView(this);
         title.setText(text);
-        title.setTextSize(26);
-        title.setTextColor(blue);
+        title.setTextSize(25);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setTextColor(Color.WHITE);
         title.setGravity(Gravity.CENTER);
-        title.setPadding(0, 16, 0, 24);
-        layout.addView(title);
+        header.addView(title, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        if ("مركز نوره للصيانة".equals(text)) {
+            TextView subtitle = new TextView(this);
+            subtitle.setText("إدارة العملاء وأعمال الصيانة والمبيعات");
+            subtitle.setTextSize(14);
+            subtitle.setTextColor(Color.rgb(220, 232, 244));
+            subtitle.setGravity(Gravity.CENTER);
+            subtitle.setPadding(0, 8, 0, 0);
+            header.addView(subtitle);
+        }
+
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        headerParams.setMargins(0, 0, 0, 20);
+        layout.addView(header, headerParams);
     }
 
     private void addButton(String text, Runnable action) {
         Button button = new Button(this);
         button.setText(text);
-        button.setTextSize(16);
+        button.setTextSize(15);
+        button.setTypeface(null, android.graphics.Typeface.BOLD);
         button.setTextColor(Color.WHITE);
-        button.setBackgroundTintList(
-            android.content.res.ColorStateList.valueOf(blue));
+        button.setAllCaps(false);
+        button.setMinHeight((int) (52 * getResources().getDisplayMetrics().density));
+        button.setPadding(16, 8, 16, 8);
+        button.setBackground(roundedBackground(teal, 15));
+        if (android.os.Build.VERSION.SDK_INT >= 21) {
+            button.setElevation(2 * getResources().getDisplayMetrics().density);
+        }
 
-        LinearLayout.LayoutParams params =
-            new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        params.setMargins(0, 6, 0, 6);
+        params.setMargins(0, 5, 0, 9);
         layout.addView(button, params);
         button.setOnClickListener(v -> action.run());
     }
@@ -80,13 +125,18 @@ public class MainActivity extends Activity {
     private EditText addInput(String hint) {
         EditText input = new EditText(this);
         input.setHint(hint);
-        input.setTextSize(16);
-        input.setPadding(12, 8, 12, 8);
+        input.setTextSize(15);
+        input.setTextColor(textColor);
+        input.setHintTextColor(mutedColor);
+        input.setPadding(15, 12, 15, 12);
         input.setSingleLine(true);
-        layout.addView(input,
-            new LinearLayout.LayoutParams(
+        input.setBackground(roundedBackground(Color.WHITE, 13));
+        input.setElevation(1 * getResources().getDisplayMetrics().density);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 4, 0, 9);
+        layout.addView(input, params);
         return input;
     }
 
